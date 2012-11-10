@@ -100,7 +100,7 @@ web-test:
 node: awk_node.js
 
 awk_node.js: check_emcc $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC)
-	#$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
+	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(INCLUDE_PATH) \
 		$(OAWK_SRC) \
 		$(LIBUXRE_SRC) \
