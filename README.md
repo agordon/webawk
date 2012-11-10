@@ -83,6 +83,42 @@ Follow the ([emscripten Tutorial](https://github.com/kripken/emscripten/wiki/Tut
 ```
 
 
+**Compilation Warnings**
+
+Some warnings and error messages are expected when compiling with **emscripten**.
+
+Warnings similar to these can be ignored:
+
+```
+In file included from heirloom_emsc/libuxre/onefile.c:33:
+heirloom_emsc/libuxre/bracket.c:801:14: warning: array index of '1' indexes past the end of an array (that contains 1 element)
+      [-Warray-bounds]
+                mcbuf.wc = mcbuf.cep->weight[1];
+                           ^                 ~
+heirloom_emsc/libuxre/colldata.h:163:2: note: array 'weight' declared here
+        wuchar_type     weight[COLL_WEIGHTS_MAX];
+        ^
+In file included from heirloom_emsc/libuxre/onefile.c:37:
+heirloom_emsc/libuxre/regcomp.c:55:23: warning: '&&' within '||' [-Wlogical-op-parentheses]
+        if (ep->re_nsub != 0 && (flags & (REG_NOSUB | REG_ONESUB)) == 0
+            ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+heirloom_emsc/libuxre/regcomp.c:55:23: note: place parentheses around the '&&' expression to silence this warning
+        if (ep->re_nsub != 0 && (flags & (REG_NOSUB | REG_ONESUB)) == 0
+                             ^
+```
+
+Also, the following **unresolved symbols** are expected:
+
+```
+Warning: Unresolved symbol: _llvm_va_start
+Warning: Unresolved symbol: _llvm_dbg_declare
+Warning: Unresolved symbol: _llvm_expect_i32
+```
+
+However, if you get compilation errors, or other unresolved symbols - that's a likely problem that might prevent AWK from functioning.
+
+
+
 Heirloom awk
 ------------
 
