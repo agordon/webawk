@@ -1,0 +1,372 @@
+.\"
+.\" This code contains changes by
+.\"      Gunnar Ritter, Freiburg i. Br., Germany, 2002. All rights reserved.
+.\"
+.\" Conditions 1, 2, and 4 and the no-warranty notice below apply
+.\" to these changes.
+.\"
+.\"
+.\" Copyright (c) 1980, 1993
+.\" 	The Regents of the University of California.  All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowedgement:
+.\" 	This product includes software developed by the University of
+.\" 	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"
+.\" Copyright(C) Caldera International Inc. 2001-2002. All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\"   Redistributions of source code and documentation must retain the
+.\"    above copyright notice, this list of conditions and the following
+.\"    disclaimer.
+.\"   Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"   All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"      This product includes software developed or owned by Caldera
+.\"      International, Inc.
+.\"   Neither the name of Caldera International, Inc. nor the names of
+.\"    other contributors may be used to endorse or promote products
+.\"    derived from this software without specific prior written permission.
+.\"
+.\" USE OF THE SOFTWARE PROVIDED FOR UNDER THIS LICENSE BY CALDERA
+.\" INTERNATIONAL, INC. AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR
+.\" IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+.\" WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED. IN NO EVENT SHALL CALDERA INTERNATIONAL, INC. BE
+.\" LIABLE FOR ANY DIRECT, INDIRECT INCIDENTAL, SPECIAL, EXEMPLARY, OR
+.\" CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+.\" SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+.\" BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+.\" WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+.\" OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+.\" EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+.\"
+.\"	from 4.3BSD awk.1	6.1 (Berkeley) 4/29/85
+.\"
+.\"	Sccsid @(#)oawk.1	1.12 (gritter) 4/30/03
+.\"
+.\".TH AWK 1 "April 29, 1985"
+.\".AT 3
+.TH OAWK 1 "4/30/03" "Heirloom Toolchest" "User Commands"
+.SH NAME
+oawk \- pattern scanning and processing language
+.SH SYNOPSIS
+\fBoawk\fR [\fB\-F\fIc\fR] [\fB\-f \fIfile\fR | \fIprog\fR] [\fIfile\fR .\ .\ .]
+.SH DESCRIPTION
+.I Oawk
+scans each input
+.I file
+for lines that match any of a set of patterns specified in
+.IR prog .
+With each pattern in
+.I prog
+there can be an associated action that will be performed
+when a line of a
+.I file
+matches the pattern.
+The set of patterns may appear literally as
+.I prog,
+or in a file
+specified as
+.B \-f
+.IR file .
+.PP
+Files are read in order;
+if there are no files, the standard input is read.
+The file name `\-'
+means the standard input.
+Each line is matched against the
+pattern portion of every pattern-action statement;
+the associated action is performed for each matched pattern.
+.PP
+An input line is made up of fields separated by white space.
+(This default can be changed by using FS,
+.IR "vide infra" ".)"
+The fields are denoted \fB$1\fR, \fB$2\fR, ... ;
+\fB$0\fR refers to the entire line.
+.PP
+.PP
+A pattern-action statement has the form
+.PP
+	\fIpattern \fB{\fI action \fB}\fR
+.PP
+A missing { action } means print the line;
+a missing pattern always matches.
+.PP
+An action is a sequence of statements.
+A statement can be one of the following:
+.PP
+.nf
+	\fBif (\fI conditional\fB )\fI statement \fR[\fB else \fIstatement \fR]
+	\fBwhile ( \fIconditional\fB ) \fIstatement\fR
+	\fBfor ( \fIexpression\fB ; \fIconditional\fB ; \fIexpression\fB ) \fIstatement\fR
+	\fBfor ( \fIvar\fB in \fIarray\fB ) \fIstatement\fR
+	\fBbreak\fR
+	\fBcontinue\fR
+	\fB{ \fR[ \fIstatement\fR ] ... \fB}\fR
+	\fIvariable\fB = \fIexpression\fR
+	\fBprint\fR [ \fIexpression-list\fR ] [ \fB>\fIexpression\fR ]
+	\fBprintf\fR \fIformat [ \fB, \fIexpression-list\fR ] [ \fB>\fIexpression\fR ]
+	\fBnext\fR	# skip remaining patterns on this input line 
+	\fBexit\fR	# skip the rest of the input
+.fi
+.PP
+Statements are terminated by
+semicolons, newlines or right braces.
+An empty expression-list stands for the whole line.
+Expressions take on string or numeric values as appropriate,
+and are built using the operators
+\fB+\fR, \fB\-\fR, \fB*\fR, \fB/\fR, \fB%\fR,
+and concatenation (indicated by a blank).
+The C operators \fB++\fR, \fB\-\-\fR, \fB+=\fR,
+\fB\-=\fR, \fB*=\fR, \fB/=\fR, and \fB%=\fR
+are also available in expressions.
+Variables may be scalars, array elements
+(denoted
+\fIx\fB[\fIi\fB]\fR)
+or fields.
+Variables are initialized to the null string.
+Array subscripts may be any string,
+not necessarily numeric;
+this allows for a form of associative memory.
+String constants are quoted \fB"\fR...\fB"\fR.
+.PP
+The 
+.B print
+statement prints its arguments on the standard output
+(or on a file if 
+.BI > file
+is present
+or on a pipe if
+.BI | cmd
+is present), separated by the current output field separator,
+and terminated by the output record separator.
+The
+.B printf
+statement formats its expression list according to the format
+(see
+.IR printf (3)).
+.PP
+There are mathematical built-in functions
+.B exp,
+.B log,
+.B sqrt,
+and
+.BR int .
+The last truncates its argument to an integer.
+Other built-in functions are:
+.TP
+.B getline
+sets $0 to the next input record.
+It returns 1 for successful input,
+and 0 for end of file.
+.TP
+.BI index( s , t )
+the position in
+.I s
+where the string
+.I t
+occurs,
+or 0 if it does not.
+.TP
+.BI length( s )
+returns the length of its argument
+taken as a string,
+or of the whole line if no argument.
+.TP
+\fBsplit(\fIs\fB, \fIa\fB, \fIfs\fB)\fR
+splits the string
+.I s
+into array elements
+.IR a [1],
+.IR a [2],
+\&...,
+.IR a [n],
+and returns n.
+The separation is done with the character
+.I fs
+or with the field separator
+.I FS
+if
+.I fs
+is not given.
+.TP
+\fBsprintf(\fIfmt\fB, \fIexpr\fB, \fIexpr\fB,\fR ...\fB)\fR
+formats the expressions
+according to the
+.IR printf (3)
+format given by
+.I fmt
+and returns the resulting string.
+.TP
+\fBsubstr(\fIs\fB, \fIm\fB, \fIn\fB)\fR
+returns the 
+.IR n -character
+substring of
+.I s
+that begins at position
+.IR m .
+.PP
+Patterns are arbitrary Boolean combinations
+(\fB!\fR, \fB\(or\(or\fR, \fB&&\fR, and parentheses) of 
+regular expressions and
+relational expressions.
+Regular expressions must be surrounded
+by slashes and are full regular expressions as described in
+.IR egrep (1).
+Isolated regular expressions
+in a pattern apply to the entire line.
+Regular expressions may also occur in
+relational expressions.
+.PP
+A pattern may consist of two patterns separated by a comma;
+in this case, the action is performed for all lines
+between an occurrence of the first pattern
+and the next occurrence of the second.
+.PP
+.nf
+A relational expression is one of the following:
+.PP
+.nf
+	\fIexpression matchop regular-expression\fR
+	\fIexpression relop expression\fR
+.PP
+.fi
+where a relop is any of the six relational operators in C,
+and a matchop is either \fB~\fR (for contains)
+or \fB!~\fR (for does not contain).
+A conditional is an arithmetic expression,
+a relational expression,
+or a Boolean combination
+of these.
+.PP
+The special patterns
+\fBBEGIN\fR
+and
+\fBEND\fR
+may be used to capture control before the first input line is read
+and after the last.
+BEGIN must be the first pattern, END the last.
+.PP
+A single character
+.I c
+may be used to separate the fields by starting
+the program with
+.PP
+	BEGIN { FS = "c" }
+.PP
+or by using the
+.BI \-F c
+option.
+.PP
+Other variable names with special meanings
+include \fBNF\fR, the number of fields in the current record;
+\fBNR\fR, the ordinal number of the current record;
+\fBFILENAME\fR, the name of the current input file;
+\fBOFS\fR, the output field separator (default blank);
+\fBORS\fR, the output record separator (default newline);
+and
+\fBOFMT\fR, the output format for numbers (default "%.6g").
+.PP
+.SH EXAMPLES
+.PP
+Print lines longer than 72 characters:
+.PP
+.nf
+	length > 72
+.fi
+.PP
+Print first two fields in opposite order:
+.PP
+.nf
+	{ print $2, $1 }
+.fi
+.PP
+Add up first column, print sum and average:
+.PP
+.nf
+		{ s += $1 }
+	END	{ print "sum is", s, " average is", s/NR }
+.fi
+.PP
+Print fields in reverse order:
+.PP
+.nf
+	{ for (i = NF; i > 0; \-\-i) print $i }
+.fi
+.PP
+Print all lines between start/stop pairs:
+.PP
+.nf
+	/start/, /stop/
+.fi
+.PP
+Print all lines whose first field is different from previous one:
+.PP
+.nf
+	$1 != prev { print; prev = $1 }
+.fi
+.SH "ENVIRONMENT VARIABLES"
+.TP
+.BR LANG ", " LC_ALL
+See
+.IR locale (7).
+.TP
+.B LC_COLLATE
+Determines the collation order used for string comparison.
+.TP
+.B LC_CTYPE
+Maps bytes to characters.
+.TP
+.B LC_NUMERIC
+Determine the radix character used when interpreting numeric input,
+performing conversions between numeric and string values
+and formatting numeric output.
+Regardless of locale, the period character
+(the decimal-point character of the C locale)
+is the decimal-point character recognized in processing awk programs.
+.SH "SEE ALSO"
+.PP
+egrep(1),
+nawk(1),
+sed(1),
+printf(3),
+locale(7)
+.br
+A. V. Aho, B. W. Kernighan, P. J. Weinberger,
+.I
+Awk \- a pattern scanning and processing language
+.SH NOTES
+There are no explicit conversions between numbers and strings.
+To force an expression to be treated as a number add 0 to it;
+to force it to be treated as a string concatenate ""
+to it.

@@ -1,0 +1,332 @@
+/*-
+ * This code contains changes by
+ *      Gunnar Ritter, Freiburg i. Br., Germany, 2002. All rights reserved.
+ *
+ * Conditions 1, 2, and 4 and the no-warranty notice below apply
+ * to these changes.
+ *
+ *
+ * Copyright (c) 1991
+ * 	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ * 	This product includes software developed by the University of
+ * 	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ *
+ * Copyright(C) Caldera International Inc. 2001-2002. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *   Redistributions of source code and documentation must retain the
+ *    above copyright notice, this list of conditions and the following
+ *    disclaimer.
+ *   Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *   All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *      This product includes software developed or owned by Caldera
+ *      International, Inc.
+ *   Neither the name of Caldera International, Inc. nor the names of
+ *    other contributors may be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * USE OF THE SOFTWARE PROVIDED FOR UNDER THIS LICENSE BY CALDERA
+ * INTERNATIONAL, INC. AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL CALDERA INTERNATIONAL, INC. BE
+ * LIABLE FOR ANY DIRECT, INDIRECT INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *	from 4.4BSD /usr/src/old/awk/awk.def	4.6 (Berkeley) 4/27/91
+ *
+ *	Sccsid @(#)awk.def	1.19 (gritter) 12/25/06
+ */
+
+#include <stdlib.h>
+#include <inttypes.h>
+
+#define	AWKFLOAT	double
+#define	xfree(a)	{ if(a!=NULL) { yfree(a); a=NULL;} }
+#define	strfree(a)	{ if(a!=NULL && a!=EMPTY) { yfree(a);} a=EMPTY; }
+#define yfree free
+#define	isnull(x)	((x) == EMPTY || (x) == NULL)
+
+typedef	AWKFLOAT	awkfloat;
+
+extern char	*progname;
+
+extern char	**FS;
+extern char	**RS;
+extern char	**ORS;
+extern char	**OFS;
+extern char	**OFMT;
+extern awkfloat *NR;
+extern awkfloat *NF;
+extern char	**FILENAME;
+
+extern int	RECSIZE;
+
+extern char	*record;
+extern char	EMPTY[];
+extern int	dbg;
+extern long long	lineno;
+extern int	errorflag;
+extern const char	*radixchar;
+extern int	radixcharlen;
+extern int	donefld;	/* 1 if record broken into fields */
+extern int	donerec;	/* 1 if record is valid (no fld has changed */
+extern int	mb_cur_max;	/* MB_CUR_MAX acceleration */
+
+typedef struct val {	/* general value during processing */
+	char	*nval;	/* name, for variables only */
+	char	*sval;	/* string value */
+	awkfloat	fval;	/* value as number */
+	unsigned	tval;	/* type info */
+	struct val	*nextval;	/* ptr to next if chained */
+} cell;
+extern cell *symtab[];
+
+extern cell	*recloc;	/* location of input record */
+extern cell	*nrloc;		/* NR */
+extern cell	*nfloc;		/* NF */
+
+#define	STR	01	/* string value is valid */
+#define	NUM	02	/* number value is valid */
+#define FLD	04	/* FLD means don't free string space */
+#define	CON	010	/* this is a constant */
+#define	ARR	020	/* this is an array */
+
+#include <string.h>
+#include <math.h>
+#include <stdio.h>
+
+#ifdef	__GLIBC__
+#ifdef	_IO_getc_unlocked
+#undef	getc
+#define	getc(c)	_IO_getc_unlocked(c)
+#endif	/* _IO_getc_unlocked */
+#endif	/* __GLIBC__ */
+
+#define	getline	xxgetline	/* avoid glibc _GNU_SOURCE name collision */
+
+#define	DEBUG
+#ifdef	DEBUG
+#	define	dprintf	if(dbg)printf
+#else
+#	define	dprintf(x1, x2, x3, x4)
+#endif
+
+#include <wchar.h>
+
+/*
+ * Get next character from string s and store it in wc; n is set to
+ * the length of the corresponding byte sequence.
+ */
+#define	next(wc, s, n) (mb_cur_max > 1 && *(s) & 0200 ? \
+			((n) = mbtowc(&(wc), (s), mb_cur_max), \
+			 (n) = ((n) > 0 ? (n) : (n) < 0 ? (wc=WEOF, 1) : 1)) :\
+		((wc) = *(s) & 0377, (n) = 1))
+
+/* function types */
+#define	FLENGTH	1
+#define	FSQRT	2
+#define	FEXP	3
+#define	FLOG	4
+#define	FINT	5
+
+typedef struct {
+	char otype;
+	char osub;
+	cell *optr;
+} obj;
+
+#define BOTCH	1
+struct nd {
+	char ntype;
+	char subtype;
+	struct nd *nnext;
+	intptr_t nobj;
+	struct nd *narg[BOTCH];	/* C won't take a zero length array */
+};
+typedef struct nd node;
+extern node	*winner;
+extern node	*nullstat;
+
+/* otypes */
+#define OCELL	0
+#define OEXPR	1
+#define OBOOL	2
+#define OJUMP	3
+
+/* cell subtypes */
+#define CTEMP	4
+#define CNAME	3 
+#define CVAR	2
+#define CFLD	1
+#define CCON	0
+
+/* bool subtypes */
+#define BTRUE	1
+#define BFALSE	2
+
+/* jump subtypes */
+#define JEXIT	1
+#define JNEXT	2
+#define	JBREAK	3
+#define	JCONT	4
+
+/* node types */
+#define NVALUE	1
+#define NSTAT	2
+#define NEXPR	3
+#define NPA2	4
+
+extern obj	(*proctab[])(node **, int);
+extern obj	true, false;
+extern int	pairstack[], paircnt;
+
+#define cantexec(n)	(n->ntype == NVALUE)
+#define notlegal(n)	(n <= FIRSTTOKEN || n >= LASTTOKEN || proctab[n-FIRSTTOKEN]== nullproc)
+#define isexpr(n)	(n->ntype == NEXPR)
+#define isjump(n)	(n.otype == OJUMP)
+#define isexit(n)	(n.otype == OJUMP && n.osub == JEXIT)
+#define	isbreak(n)	(n.otype == OJUMP && n.osub == JBREAK)
+#define	iscont(n)	(n.otype == OJUMP && n.osub == JCONT)
+#define	isnext(n)	(n.otype == OJUMP && n.osub == JNEXT)
+#define isstr(n)	(n.optr->tval & STR)
+#define istrue(n)	(n.otype == OBOOL && n.osub == BTRUE)
+#define istemp(n)	(n.otype == OCELL && n.osub == CTEMP)
+#define isfld(n)	(!donefld && n.osub==CFLD && n.otype==OCELL && n.optr->nval==EMPTY)
+#define isrec(n)	(donefld && n.osub==CFLD && n.otype==OCELL && n.optr->nval!=EMPTY)
+
+#define MAXSYM	50
+#define	HAT	0177	/* matches ^ in regular expr */
+			/* watch out for mach dep */
+/* awk.g.y */
+extern int yyparse(void);
+/* awk.lx.l */
+extern int yylex(void);
+extern void startreg(void);
+/* b.c */
+extern void overflo(void);
+extern struct fa *makedfa(const char *);
+extern int match(void *, register const char *);
+extern int member(register char, register const char *);
+/* lib.c */
+extern void growrec(void);
+extern void fldinit(void);
+extern int getrec(void);
+extern void setclvar(char *);
+extern void fldbld(void);
+extern void recbld(void);
+extern cell *fieldadr(int);
+extern void yyerror(const char *);
+extern void error(int, const char *, ...);
+extern void PUTS(const char *);
+extern int isanumber(register const char *);
+/* main.c */
+extern int yywrap(void);
+/* parse.c */
+extern node *ALLOC(int);
+extern node *exptostat(node *);
+extern node *node0(intptr_t);
+extern node *node1(intptr_t, node *);
+extern node *node2(intptr_t, node *, node *);
+extern node *node3(intptr_t, node *, node *, node *);
+extern node *node4(intptr_t, node *, node *, node *, node *);
+extern node *stat3(intptr_t, node *, node *, node *);
+extern node *op2(intptr_t, node *, node *);
+extern node *op1(intptr_t, node *);
+extern node *stat1(intptr_t, node *);
+extern node *op3(intptr_t, node *, node *, node *);
+extern node *stat2(intptr_t, node *, node *);
+extern node *stat4(intptr_t, node *, node *, node *, node *);
+extern node *valtonode(cell *, int);
+extern node *pa2stat(node *, node *, node *);
+extern node *linkum(node *, node *);
+extern node *genprint(void);
+/* run.c */
+extern void run(void);
+extern obj execute(node *);
+extern obj program(node **, int);
+extern obj getline(node **, int);
+extern obj array(node **, int);
+extern obj arrayel(node *, obj);
+extern obj matchop(node **, int);
+extern obj boolop(node **, int);
+extern obj relop(node **, int);
+extern void tempfree(obj);
+extern obj gettemp(void);
+extern obj indirect(node **, int);
+extern obj substr(node **, int);
+extern obj sindex(node **, int);
+extern char *format(const char *, node *);
+extern obj awsprintf(node **, int);
+extern obj arith(node **, int);
+extern obj incrdecr(node **, int);
+extern obj assign(node **, int);
+extern obj cat(node **, int);
+extern obj pastat(node **, int);
+extern obj dopa2(node **, int);
+extern obj aprintf(node **, int);
+extern obj split(node **, int);
+extern obj ifstat(node **, int);
+extern obj whilestat(node **, int);
+extern obj forstat(node **, int);
+extern obj instat(node **, int);
+extern obj jump(node **, int);
+extern obj fncn(node **, int);
+extern obj print(node **, int);
+extern obj nullproc(node **, int);
+extern obj nodetoobj(node *);
+extern void redirprint(const char *, int, node *);
+extern int chrlen(const char *);
+extern int chrdist(const char *, const char *);
+/* token.c */
+extern char *tokname(int);
+/* tran.c */
+extern void syminit(void);
+extern cell **makesymtab(void);
+extern void freesymtab(cell *);
+extern cell *setsymtab(const char *, char *, awkfloat, unsigned, cell **);
+extern int hash(register const unsigned char *);
+extern cell *lookup(register const char *, cell **, int);
+extern awkfloat setfval(register cell *, awkfloat);
+extern char *setsval(register cell *, const char *);
+extern awkfloat getfval(register cell *);
+extern char *getsval(register cell *);
+extern void checkval(register cell *);
+extern char *tostring(register const char *);

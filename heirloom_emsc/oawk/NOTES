@@ -1,0 +1,20 @@
+Notes for the 'oawk' utility
+============================
+
+Based on 4.4BSD old awk, the following changes were made:
+
+- Support for LC_CTYPE (especially multibyte characters).
+- Support for LC_COLLATE (when comparing string variables).
+- Support for LC_TIME (radix character).
+- No limit on the length of input and output lines anymore.
+- No limit on the maximum number of fields per record.
+- Both Unix lex and flex can be used for compilation.
+
+Since no Open Source lex implementation was able to process multibyte
+characters at the time the port was done, it was not possible to retain
+the regular expression lexer. Regular expressions are thus handled by
+the 'Unix Regular Expression Library', which was modified to handle the
+traditional awk expression as well. Please contact me if you still find
+differences.
+
+	Gunnar Ritter						7/30/05
