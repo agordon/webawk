@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Emscripten-Generated Code</title>
+    <style>
+      .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
+      canvas.emscripten { border: 1px solid black; }
+      textarea.emscripten { font-family: monospace; width: 80%; }
+      div.emscripten { text-align: center; }
+    </style>
+  </head>
+  <body>
+<h2>AWK Program</h2>
+<textarea class="emscripten" id="awk_program" rows="5">
+BEGIN {
+  print "Hello from Web/AWK World"
+}
+$2 ~ /C/ { print $1 * 2 }
+</textarea>
+<h2>Input File</h2>
+<textarea class="emscripten" id="input_data" rows="4">
+1   A
+2   B
+3   C
+4   D
+</textarea>
+
+<div class="emscripten"><input type="button" value="Run" onclick="go_awk_go()"></div>
+
+<h3>Exit code: <div id="exit_code">(not run yet)</div></h3>
+
+<h2>STDOUT</h2>
+<textarea class="emscripten" id="stdout" rows="8">
+</textarea>
+
+<h2>STDERR</h2>
+<textarea class="emscripten" id="stderr" rows="8"></textarea>
+
+<hr>
+
+    <script src="awk_web.js" type='text/javascript'></script>
+
+<script type="text/javascript">
+
+function go_awk_go()
+{
+	var awk_source = document.getElementById("awk_program").value;
+
+	var sample_input = document.getElementById("input_data").value;
+
+	var awk = run_web_awk( awk_source, sample_input ) ;
+
+	document.getElementById("exit_code").innerHTML = awk.exit_code ;
+	document.getElementById("stdout").value = awk.stdout ;
+	document.getElementById("stderr").value = awk.stderr ;
+}
+
+
+    </script>
+  </body>
+</html>
