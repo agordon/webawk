@@ -1,9 +1,9 @@
 
 EMCC=emcc
-
 # if 'emcc' (the emscripten compiler) is not in your $PATH,
 # set the full path here:
 #EMCC=~/sources/emscripten/emcc
+
 
 OAWK_SRC=heirloom_emsc/oawk/lib.c \
 	heirloom_emsc/oawk/parse.c \
@@ -40,13 +40,45 @@ POST_JS_SRC=js_emsc/post_AWK.js
 
 .PHONY: all
 all:
-	@echo "what?"
+	@echo
+	@echo "WebAWK - AWK in Javascript"
+	@echo "  https://github.com/agordon/webawk.git"
+	@echo ""
+	@echo "  See README.md for more details"
+	@echo ""
+	@echo "Possible targets:"
+	@echo "   make node       - Compile the node version (awk_node.js)"
+	@echo "   make node-test  - test the AWK node version"
+	@echo "   make web        - Compile the web version (website/awk_web.js)"
+	@echo "   make web-test   - Print the URL to test the web version"
+	@echo ""
+	@echo "   make prebuilt   - If you don't have llvm/clang/emscripten compilers"
+	@echo "                       installed, use the pre-built javascript versions."
+	@echo "                       run this target if you want to experiment with WebAWK"
+	@echo "                       without compiling."
+	@echo "   make clean      - delete the compiled javascript files."
+	@echo ""
+	@echo ""
+
+.PHONY: check_emcc
+check_emcc:
+	@(if ! which "$(EMCC)" > /dev/null ; then \
+	  echo "" >&2 ; \
+	  echo "Error: can't find EMCC compiler (looking for '$(EMCC)')." >&2 ; \
+	  echo "" >&2 ; \
+	  echo "If you have EMCC installed, please add it to your PATH," >&2 ; \
+	  echo "  or change the 'EMCC=' directive in this Makefile." >&2 ; \
+	  echo "" >&2 ; \
+	  echo "If you don't have EMCC installed, you can run 'make prebuilt'" >&2 ; \
+	  echo "  to use the pre-built javascript versions." >&2 ; \
+	  exit 1 ; \
+	  fi )
 
 
 .PHONY: web
 web: website/awk_web.js
 
-website/awk_web.js: $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC) $(PRE_JS_SRC) $(POST_JS_SRC)
+website/awk_web.js: check_emcc $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC) $(PRE_JS_SRC) $(POST_JS_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(INCLUDE_PATH) \
 		$(OAWK_SRC) \
@@ -57,7 +89,7 @@ website/awk_web.js: $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC) $(PRE_JS_SRC) $(POST_
 		-o $@
 
 .PHONY: web-test
-web-test: web
+web-test:
 	@echo
 	@echo "To test on in your web browser, load the following file:"
 	@echo "  file://$(PWD)/website/awk_web.html"
@@ -67,8 +99,8 @@ web-test: web
 .PHONY: node
 node: awk_node.js
 
-awk_node.js: $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC)
-	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
+awk_node.js: check_emcc $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC)
+	#$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(INCLUDE_PATH) \
 		$(OAWK_SRC) \
 		$(LIBUXRE_SRC) \
@@ -76,7 +108,7 @@ awk_node.js: $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC)
 		-o $@
 
 .PHONY: node-test
-node-test: node
+node-test:
 	@echo
 	@echo "Running Javascript/AWK parser using node ."
 	@echo "  You should see an \"Hello World\" message below:"
@@ -98,3 +130,23 @@ clean-node:
 clean-web:
 	rm -f website/awk_web.js
 
+
+
+.PHONY: prebuilt
+prebuilt:
+	@echo "copying pre-built javascript files..."
+	@gunzip -dc prebuilt/awk_node.js.gz > awk_node.js
+	@gunzip -dc prebuilt/awk_web.js.gz > website/awk_web.js
+	@echo "Done."
+	@echo
+	@echo "Try testing the prebuilt files with:"
+	@echo "  make node-test"
+	@echo "  make web-test"
+	@echo ""
+
+
+.PHONY: buildpre
+buildpre: node web
+	@echo "storing new pre-built javascript files..."
+	@gzip -c awk_node.js > prebuilt/awk_node.js.gz
+	@gzip -c website/awk_web.js > prebuilt/awk_web.js.gz

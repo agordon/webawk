@@ -22,7 +22,7 @@ Try locally:
     $ cd webawk
 
     # use the supplied pre-built javascripts, to save time and effort.
-    $ make use-prebuilt
+    $ make prebuilt
 
     # or build the javascripts, by compiling the C code.
     # see compilation instructions below.
@@ -101,7 +101,9 @@ To get the entire heirloom source code, run this:
 Contact
 -------
 
-gordon at cshl dot edu
+email: gordon at cshl dot edu
+source: https://github.com/agordon/webawk.git
+
 
 
 License
