@@ -1,6 +1,8 @@
 #ifndef __LIBBB_TINY_H__
 #define __LIBBB_TINY_H__
 
+#define DISABLE_FOR_WEBACK 1
+
 typedef signed char smallint;
 typedef unsigned char smalluint;
 

@@ -25,10 +25,10 @@ bb_simple_perror_msg_and_die("__ZNSt9exceptionD2Ev called");
 return -1;
 }
 
-void xregcomp(regex_t *preg, const char *regex, int cflags)
-{
-bb_simple_perror_msg_and_die("xregcomp called");
-}
+//void xregcomp(regex_t *preg, const char *regex, int cflags)
+//{
+//bb_simple_perror_msg_and_die("xregcomp called");
+//}
 
 const char *applet_name = "BusyBoxAwk";
 

@@ -3072,8 +3072,6 @@ int awk_main(int argc, char **argv)
 	char *vnames = (char *)vNames; /* cheat */
 	char *vvalues = (char *)vValues;
 
-	fprintf(stderr,"Hello AWK Busybox world(1)\n");
-
 	INIT_G();
 
 	/* Undo busybox.c, or else strtod may eat ','! This breaks parsing:
@@ -3112,28 +3110,6 @@ int awk_main(int argc, char **argv)
 	newfile("/dev/stdout")->F = stdout;
 	newfile("/dev/stderr")->F = stderr;
 
-	/* Huh, people report that sometimes environ is NULL. Oh well. */
-
-//agn: disable environment variables
-#if 0
-	if (environ) for (envp = environ; *envp; envp++) {
-		/* environ is writable, thus we don't strdup it needlessly */
-		char *s = *envp;
-		char *s1 = strchr(s, '=');
-		if (s1) {
-			*s1 = '\0';
-			/* Both findvar and setvar_u take const char*
-			 * as 2nd arg -> environment is not trashed */
-			setvar_u(findvar(iamarray(intvar[ENVIRON]), s), s1 + 1);
-			*s1 = '=';
-		}
-	}
-#endif
-
-	fprintf(stderr,"Hello AWK Busybox world(2)\n");
-
-
-//agn: disable all command line stuff
 	opt_complementary = "v::f::"; /* -v and -f can occur multiple times */
 	opt = getopt32(argv, "F:v:f:W:", &opt_F, &list_v, &list_f, NULL);
 	argv += optind;

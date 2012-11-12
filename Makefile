@@ -4,6 +4,14 @@ EMCC=emcc
 # set the full path here:
 #EMCC=~/sources/emscripten/emcc
 
+NEWLIB_REGEX_SRC=newlib_regex/regerror.c \
+	newlib_regex/regfree.c \
+	newlib_regex/regcomp.c \
+	newlib_regex/regexec.c \
+	newlib_regex/collate.c \
+	newlib_regex/collcmp.c
+
+
 BUSYBOX_AWK_SRC=busybox/editors/awk.c \
 		busybox/libbb/wfopen_input.c \
 		busybox/libbb/skip_whitespace.c \
@@ -22,13 +30,14 @@ BUSYBOX_AWK_SRC=busybox/editors/awk.c \
 		busybox/libbb/safe_write.c \
 		busybox/libbb/platform.c \
 		busybox/libbb/getopt32.c \
+		busybox/libbb/xregcomp.c \
 		busybox/libbb/xatonum.c \
 		busybox/c_stubs/missing_functions.c
 
 
-BUSYBOX_INCLUDE_PATH=-Ibusybox/include
+BUSYBOX_INCLUDE_PATH=-Ibusybox/include -Inewlib_regex
 
-OPT_FLAGS=-O2
+OPT_FLAGS=-O0
 
 JS_FLAGS=-s WARN_ON_UNDEFINED_SYMBOLS=1 \
 	-s CATCH_EXIT_CODE=1
@@ -37,7 +46,7 @@ PRE_JS_SRC=js_emsc/pre_AWK.js
 POST_JS_SRC=js_emsc/post_AWK.js
 
 .PHONY: all
-all: bb
+all: cl
 oo-all:
 	@echo
 	@echo "WebAWK - AWK in Javascript"
@@ -102,13 +111,20 @@ awk_node.js: check_emcc $(BUSYBOX_AWK_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(BUSYBOX_INCLUDE_PATH) \
 		$(BUSYBOX_AWK_SRC) \
+		$(NEWLIB_REGEX_SRC) \
 		-o $@
 
-cl: $(BUSYBOX_AWK_SRC)
+cl: $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
 	clang -O0 -g \
 		$(BUSYBOX_INCLUDE_PATH) \
 		$(BUSYBOX_AWK_SRC) \
+		$(NEWLIB_REGEX_SRC) \
 		-o $@
+
+# Quick and dirty test to check the native-compiled busybox awk
+clt: cl
+	printf "1 A\n2 B\n3 C\n" | ./cl 'BEGIN { print "Hello Busybox/AWK/CL World" } $$1>1 { print $$2 }'
+	printf "1 A\n2 B\n3 C\n" | ./cl 'BEGIN { print "Hello Busybox/AWK/CL World" } $$1 ~ /2/ { print $$2 }'
 
 
 .PHONY: node-test
