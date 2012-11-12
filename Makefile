@@ -9,7 +9,8 @@ NEWLIB_REGEX_SRC=newlib_regex/regerror.c \
 	newlib_regex/regcomp.c \
 	newlib_regex/regexec.c \
 	newlib_regex/collate.c \
-	newlib_regex/collcmp.c
+	newlib_regex/collcmp.c \
+	newlib_regex/getopt.c
 
 
 BUSYBOX_AWK_SRC=busybox/editors/awk.c \
@@ -34,10 +35,9 @@ BUSYBOX_AWK_SRC=busybox/editors/awk.c \
 		busybox/libbb/xatonum.c \
 		busybox/c_stubs/missing_functions.c
 
-
 BUSYBOX_INCLUDE_PATH=-Ibusybox/include -Inewlib_regex
 
-OPT_FLAGS=-O0
+OPT_FLAGS=-O2 --closure 1 --minify 1
 
 JS_FLAGS=-s WARN_ON_UNDEFINED_SYMBOLS=1 \
 	-s CATCH_EXIT_CODE=1
@@ -55,6 +55,8 @@ oo-all:
 	@echo "  See README.md for more details"
 	@echo ""
 	@echo "Possible targets:"
+	@echo "   make bin        - Compile native binary using CLANG for debugging (awk_bin)"
+	@echo "   make bin-test   - test the binary version"
 	@echo "   make node       - Compile the node version (awk_node.js)"
 	@echo "   make node-test  - test the AWK node version"
 	@echo "   make web        - Compile the web version (website/awk_web.js)"
@@ -86,47 +88,60 @@ check_emcc:
 .PHONY: web
 web: website/awk_web.js
 
-website/awk_web.js: check_emcc $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC) $(PRE_JS_SRC) $(POST_JS_SRC)
+website/awk_web.js: $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
-		$(INCLUDE_PATH) \
-		$(OAWK_SRC) \
-		$(LIBUXRE_SRC) \
-		$(STUB_SRC) \
+		$(BUSYBOX_INCLUDE_PATH) \
+		$(BUSYBOX_AWK_SRC) \
+		$(NEWLIB_REGEX_SRC) \
 		--pre-js $(PRE_JS_SRC) \
 		--post-js $(POST_JS_SRC) \
 		-o $@
 
+# Undocumented target:
+#  create a Javascript+HTML stub for direct loading,
+#  skipping the custom pre/post javascripts.
+#  try this if you suspect a bug in the pre/post files.
+test.html: check_emcc $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
+	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
+		$(BUSYBOX_INCLUDE_PATH) \
+		$(BUSYBOX_AWK_SRC) \
+		$(NEWLIB_REGEX_SRC) \
+		-o $@
+
 .PHONY: web-test
-web-test:
+web-test: website/awk_web.js tests/web_test.js
+	@cat website/awk_web.js tests/web_test.js > tmp_web_test.js
+	@echo
+	@echo "Simulating a web-browser call to 'run_web_awk()':"
+	@echo
+	node tmp_web_test.js
+	@echo
+	@echo
 	@echo
 	@echo "To test on in your web browser, load the following file:"
 	@echo "  file://$(PWD)/website/awk_web.html"
 	@echo
 	@echo
+	@rm -f tmp_web_test.js
 
 .PHONY: node
 node: awk_node.js
 
-awk_node.js: check_emcc $(BUSYBOX_AWK_SRC)
+# The node target embeds the two test input files
+# in the jvascript (there's no easy filesystem access from the node script)
+awk_node.js: check_emcc $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(BUSYBOX_INCLUDE_PATH) \
 		$(BUSYBOX_AWK_SRC) \
 		$(NEWLIB_REGEX_SRC) \
+		--embed-file tests/my_program.awk \
+		--embed-file tests/my_input.txt \
 		-o $@
 
-cl: $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
-	clang -O0 -g \
-		$(BUSYBOX_INCLUDE_PATH) \
-		$(BUSYBOX_AWK_SRC) \
-		$(NEWLIB_REGEX_SRC) \
-		-o $@
-
-# Quick and dirty test to check the native-compiled busybox awk
-clt: cl
-	printf "1 A\n2 B\n3 C\n" | ./cl 'BEGIN { print "Hello Busybox/AWK/CL World" } $$1>1 { print $$2 }'
-	printf "1 A\n2 B\n3 C\n" | ./cl 'BEGIN { print "Hello Busybox/AWK/CL World" } $$1 ~ /2/ { print $$2 }'
-
-
+## Important node about the node test:
+##  The AWK program will NOT read the actual input files (e.g. "tests/my_program.awk").
+##  It will read the previously embedded files, from the Javascript.
+##  (see the --embed-file command in the compilation stage)
 .PHONY: node-test
 node-test:
 	@echo
@@ -135,11 +150,44 @@ node-test:
 	@echo
 	node awk_node.js 'BEGIN { print "Hello from Javascript/AWK" ; exit }'
 	@echo
+	@echo Second test: reading from input file
+	@echo
+	node awk_node.js -f tests/my_program.awk tests/my_input.txt
+	@echo
+	@echo
 	@echo
 
 
+.PHONY: bin
+bin: awk_bin
+
+awk_bin: $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
+	clang -O0 -g \
+		$(BUSYBOX_INCLUDE_PATH) \
+		$(BUSYBOX_AWK_SRC) \
+		$(NEWLIB_REGEX_SRC) \
+		-o $@
+
+# Quick and dirty test to check the native-compiled busybox awk
+.PHONY: bin-test
+bin-test: awk_bin
+	@echo
+	@echo "Running AWK binary."
+	@echo "  You should see an \"Hello World\" message below:"
+	@echo
+	printf "1 A\n2 B\n3 C\n" | ./awk_bin 'BEGIN { print "Hello Busybox/AWK/Clang World" } $$1 ~ /2/ { print $$2 }'
+	@echo
+	@echo Second test: reading from input file
+	@echo
+	./awk_bin -f tests/my_program.awk tests/my_input.txt
+	@echo
+	@echo
+	@echo
+
+
+
 .PHONY: clean
-clean: clean-node clean-web
+clean: clean-node clean-web clean-bin
 
 
 .PHONY: clean-node
@@ -149,6 +197,10 @@ clean-node:
 .PHONY: clean-web
 clean-web:
 	rm -f website/awk_web.js
+
+.PHONY: clean-bin
+clean-bin:
+	rm -f awk_bin
 
 
 
