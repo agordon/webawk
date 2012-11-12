@@ -4,13 +4,13 @@ EMCC=emcc
 # set the full path here:
 #EMCC=~/sources/emscripten/emcc
 
-NEWLIB_REGEX_SRC=newlib_regex/regerror.c \
-	newlib_regex/regfree.c \
-	newlib_regex/regcomp.c \
-	newlib_regex/regexec.c \
-	newlib_regex/collate.c \
-	newlib_regex/collcmp.c \
-	newlib_regex/getopt.c
+NEWLIB_SRC=newlib/libc/posix/regerror.c \
+	newlib/libc/posix/regfree.c \
+	newlib/libc/posix/regcomp.c \
+	newlib/libc/posix/collcmp.c \
+	newlib/libc/posix/collate.c \
+	newlib/libc/posix/regexec.c \
+	newlib/libc/stdlib/getopt.c
 
 
 BUSYBOX_AWK_SRC=busybox/editors/awk.c \
@@ -35,7 +35,7 @@ BUSYBOX_AWK_SRC=busybox/editors/awk.c \
 		busybox/libbb/xatonum.c \
 		busybox/c_stubs/missing_functions.c
 
-BUSYBOX_INCLUDE_PATH=-Ibusybox/include -Inewlib_regex
+BUSYBOX_INCLUDE_PATH=-Ibusybox/include -Inewlib/libc/posix -Inewlib/libc/stdlib
 
 OPT_FLAGS=-O2 --closure 1 --minify 1
 
@@ -88,11 +88,11 @@ check_emcc:
 .PHONY: web
 web: website/awk_web.js
 
-website/awk_web.js: $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
+website/awk_web.js: $(BUSYBOX_AWK_SRC) $(NEWLIB_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(BUSYBOX_INCLUDE_PATH) \
 		$(BUSYBOX_AWK_SRC) \
-		$(NEWLIB_REGEX_SRC) \
+		$(NEWLIB_SRC) \
 		--pre-js $(PRE_JS_SRC) \
 		--post-js $(POST_JS_SRC) \
 		-o $@
@@ -101,11 +101,11 @@ website/awk_web.js: $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
 #  create a Javascript+HTML stub for direct loading,
 #  skipping the custom pre/post javascripts.
 #  try this if you suspect a bug in the pre/post files.
-test.html: check_emcc $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
+test.html: check_emcc $(BUSYBOX_AWK_SRC) $(NEWLIB_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(BUSYBOX_INCLUDE_PATH) \
 		$(BUSYBOX_AWK_SRC) \
-		$(NEWLIB_REGEX_SRC) \
+		$(NEWLIB_SRC) \
 		-o $@
 
 .PHONY: web-test
@@ -129,11 +129,11 @@ node: awk_node.js
 
 # The node target embeds the two test input files
 # in the jvascript (there's no easy filesystem access from the node script)
-awk_node.js: check_emcc $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
+awk_node.js: check_emcc $(BUSYBOX_AWK_SRC) $(NEWLIB_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(BUSYBOX_INCLUDE_PATH) \
 		$(BUSYBOX_AWK_SRC) \
-		$(NEWLIB_REGEX_SRC) \
+		$(NEWLIB_SRC) \
 		--embed-file tests/my_program.awk \
 		--embed-file tests/my_input.txt \
 		-o $@
@@ -161,11 +161,11 @@ node-test:
 .PHONY: bin
 bin: awk_bin
 
-awk_bin: $(BUSYBOX_AWK_SRC) $(NEWLIB_REGEX_SRC)
+awk_bin: $(BUSYBOX_AWK_SRC) $(NEWLIB_SRC)
 	clang -O0 -g \
 		$(BUSYBOX_INCLUDE_PATH) \
 		$(BUSYBOX_AWK_SRC) \
-		$(NEWLIB_REGEX_SRC) \
+		$(NEWLIB_SRC) \
 		-o $@
 
 # Quick and dirty test to check the native-compiled busybox awk
