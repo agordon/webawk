@@ -4,33 +4,31 @@ EMCC=emcc
 # set the full path here:
 #EMCC=~/sources/emscripten/emcc
 
+BUSYBOX_AWK_SRC=busybox/editors/awk.c \
+		busybox/libbb/wfopen_input.c \
+		busybox/libbb/skip_whitespace.c \
+		busybox/libbb/llist.c \
+		busybox/libbb/wfopen.c \
+		busybox/libbb/xfuncs_printf.c \
+		busybox/libbb/xfuncs.c \
+		busybox/libbb/messages.c \
+		busybox/libbb/verror_msg.c \
+		busybox/libbb/process_escape_sequence.c \
+		busybox/libbb/perror_msg.c \
+		busybox/libbb/read.c \
+		busybox/libbb/xfunc_die.c \
+		busybox/libbb/full_write.c \
+		busybox/libbb/copyfd.c \
+		busybox/libbb/safe_write.c \
+		busybox/libbb/platform.c \
+		busybox/libbb/getopt32.c \
+		busybox/libbb/xatonum.c \
+		busybox/c_stubs/missing_functions.c
 
-OAWK_SRC=heirloom_emsc/oawk/lib.c \
-	heirloom_emsc/oawk/parse.c \
-	heirloom_emsc/oawk/awk.g.c \
-	heirloom_emsc/oawk/run.c \
-	heirloom_emsc/oawk/main.c \
-	heirloom_emsc/oawk/token.c \
-	heirloom_emsc/oawk/version.c \
-	heirloom_emsc/oawk/proctab.c \
-	heirloom_emsc/oawk/b.c \
-	heirloom_emsc/oawk/awk.lx.c \
-	heirloom_emsc/oawk/freeze.c \
-	heirloom_emsc/oawk/tran.c
 
-LIBUXRE_SRC=heirloom_emsc/libuxre/onefile.c \
-	    heirloom_emsc/libuxre/regerror.c \
-	    heirloom_emsc/libuxre/regfree.c \
+BUSYBOX_INCLUDE_PATH=-Ibusybox/include
 
-STUB_SRC=c_emsc/stubs.c
-
-INCLUDE_PATH=-Iheirloom_emsc/libuxre
-
-
-# -O2 currently doesn't work (the "undefined is not a function" error)
-#OPT_FLAGS=-O2 --closure 0
-
-OPT_FLAGS=-O1 --closure 0
+OPT_FLAGS=-O2
 
 JS_FLAGS=-s WARN_ON_UNDEFINED_SYMBOLS=1 \
 	-s CATCH_EXIT_CODE=1
@@ -39,7 +37,8 @@ PRE_JS_SRC=js_emsc/pre_AWK.js
 POST_JS_SRC=js_emsc/post_AWK.js
 
 .PHONY: all
-all:
+all: bb
+oo-all:
 	@echo
 	@echo "WebAWK - AWK in Javascript"
 	@echo "  https://github.com/agordon/webawk.git"
@@ -99,12 +98,10 @@ web-test:
 .PHONY: node
 node: awk_node.js
 
-awk_node.js: check_emcc $(OAWK_SRC) $(LIBUXRE_SRC) $(STUB_SRC)
+awk_node.js: check_emcc $(BUSYBOX_AWK_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
-		$(INCLUDE_PATH) \
-		$(OAWK_SRC) \
-		$(LIBUXRE_SRC) \
-		$(STUB_SRC) \
+		$(BUSYBOX_INCLUDE_PATH) \
+		$(BUSYBOX_AWK_SRC) \
 		-o $@
 
 .PHONY: node-test
