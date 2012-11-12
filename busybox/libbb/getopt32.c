@@ -354,8 +354,10 @@ getopt32(char **argv, const char *applet_opts, ...)
 
 	/* skip 0: some applets cheat: they do not actually HAVE argv[0] */
 	argc = 1;
-	while (argv[argc])
+	while (argv[argc]) {
+		node_js_debug("==== getopt32: argv[%d] = '%s'\n", argc, argv[argc]);
 		argc++;
+	}
 
 	va_start(p, applet_opts);
 
@@ -546,7 +548,11 @@ getopt32(char **argv, const char *applet_opts, ...)
 	optind = 1;
 	/* optreset = 1; */
 #endif
-	/* optarg = NULL; opterr = 0; optopt = 0; - do we need this?? */
+	optarg = NULL; opterr = 0; optopt = 0; //- do we need this?? */
+
+	node_js_debug("==== getopt32: applet_opts = %s\n", applet_opts);
+	for (int i=0;i<argc;++i)
+		node_js_debug("==== getopt32: argv[%d] = '%s'\n", i, argv[i]);
 
 	/* Note: just "getopt() <= 0" will not work well for
 	 * "fake" short options, like this one:
@@ -558,6 +564,8 @@ getopt32(char **argv, const char *applet_opts, ...)
 #else
 	while ((c = getopt(argc, argv, applet_opts)) != -1) {
 #endif
+		node_js_debug("==== getopt32: getopt returned '%c'\n", c);
+
 		/* getopt prints "option requires an argument -- X"
 		 * and returns '?' if an option has no arg, but one is reqd */
 		c &= 0xff; /* fight libc's sign extension */

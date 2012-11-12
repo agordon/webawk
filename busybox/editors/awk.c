@@ -20,6 +20,7 @@
 /* This is a NOEXEC applet. Be very careful! */
 
 
+
 /* If you comment out one of these below, it will be #defined later
  * to perform debug printfs to stderr: */
 #define debug_printf_walker(...)  do {} while (0)
@@ -3073,11 +3074,13 @@ int awk_main(int argc, char **argv)
 	char *vvalues = (char *)vValues;
 
 	INIT_G();
+	node_js_debug("=== INIT_G\n");
 
 	/* Undo busybox.c, or else strtod may eat ','! This breaks parsing:
 	 * $1,$2 == '$1,' '$2', NOT '$1' ',' '$2' */
 	if (ENABLE_LOCALE_SUPPORT)
 		setlocale(LC_NUMERIC, "C");
+
 
 	zero_out_var(&tv);
 
@@ -3102,6 +3105,7 @@ int awk_main(int argc, char **argv)
 			vnames++;
 		}
 	}
+	node_js_debug("=== After init varaibles\n");
 
 	handle_special(intvar[FS]);
 	handle_special(intvar[RS]);
@@ -3110,8 +3114,16 @@ int awk_main(int argc, char **argv)
 	newfile("/dev/stdout")->F = stdout;
 	newfile("/dev/stderr")->F = stderr;
 
+#ifdef NODE_JS_DEBUG
+	for (i=0;i<argc;++i) {
+		node_js_debug("argv[%d] = '%s'\n", i, argv[i]);
+	}
+#endif
+
 	opt_complementary = "v::f::"; /* -v and -f can occur multiple times */
-	opt = getopt32(argv, "F:v:f:W:", &opt_F, &list_v, &list_f, NULL);
+	//opt = getopt32(argv, "F:v:f:W:", &opt_F, &list_v, &list_f, NULL);
+	opt = fixed_getopt32(argv, "F:v:f:W:", &opt_F, &list_v, &list_f);
+	node_js_debug("=== opt = %04x\n",opt);
 	argv += optind;
 	argc -= optind;
 	if (opt & 0x1)
@@ -3120,12 +3132,15 @@ int awk_main(int argc, char **argv)
 		if (!is_assignment(llist_pop(&list_v)))
 			bb_show_usage();
 	}
+	node_js_debug("=== After variable assignment \n");
 	if (list_f) { /* -f */
 		do {
 			char *s = NULL;
 			FILE *from_file;
 
+
 			g_progname = llist_pop(&list_f);
+			node_js_debug("=== Reading program file: %s \n", g_progname);
 			from_file = xfopen_stdin(g_progname);
 			/* one byte is reserved for some trick in next_token */
 			for (i = j = 1; j > 0; i += j) {
@@ -3142,10 +3157,13 @@ int awk_main(int argc, char **argv)
 		if (!argc)
 			bb_show_usage();
 		g_progname = "cmd. line";
+		node_js_debug("=== Reading program from command-line..\n");
 		parse_program(*argv++);
 	}
 	if (opt & 0x8) // -W
 		bb_error_msg("warning: option -W is ignored");
+
+	node_js_debug("=== After reading files \n");
 
 
 	/* fill in ARGV array */
@@ -3155,9 +3173,13 @@ int awk_main(int argc, char **argv)
 	while (*argv)
 		setari_u(intvar[ARGV], ++i, *argv++);
 
+	node_js_debug("=== Evaluating BEGIN block \n");
+
 	evaluate(beginseq.first, &tv);
 	if (!mainseq.first && !endseq.first)
 		awk_exit(EXIT_SUCCESS);
+
+	node_js_debug("=== after BEGIN block \n");
 
 	/* input file could already be opened in BEGIN block */
 	if (!iF)

@@ -1,6 +1,16 @@
 #ifndef __LIBBB_TINY_H__
 #define __LIBBB_TINY_H__
 
+//#define NODE_JS_DEBUG
+
+#ifdef NODE_JS_DEBUG
+#define node_js_debug(...) (fprintf(stderr, __VA_ARGS__))
+#else
+#define node_js_debug
+#endif
+
+
+
 #define DISABLE_FOR_WEBACK 1
 
 typedef signed char smallint;
@@ -196,5 +206,10 @@ extern const char *opt_complementary;
 extern uint32_t getopt32(char **argv, const char *applet_opts, ...) FAST_FUNC;
 
 extern int vasprintf(char **string_ptr, const char *format, va_list p) FAST_FUNC;
+
+int fixed_getopt32(const char* argv[], const char* options,
+			/* output*/  char* opt_F,
+			/* output*/  llist_t* list_v,
+			/* output*/  llist_t* list_f);
 
 #endif
