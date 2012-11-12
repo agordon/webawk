@@ -1,10 +1,5 @@
 #include "libbb.h"
 
-unsigned int xatou_range(const char* str, unsigned int min, unsigned int max)
-{
-	return xstrtou_range(str,10,min,max,NULL);
-}
-
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 		                            const struct sockaddr *dest_addr, socklen_t addrlen)
 {

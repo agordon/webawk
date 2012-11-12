@@ -104,6 +104,13 @@ awk_node.js: check_emcc $(BUSYBOX_AWK_SRC)
 		$(BUSYBOX_AWK_SRC) \
 		-o $@
 
+cl: $(BUSYBOX_AWK_SRC)
+	clang -O0 -g \
+		$(BUSYBOX_INCLUDE_PATH) \
+		$(BUSYBOX_AWK_SRC) \
+		-o $@
+
+
 .PHONY: node-test
 node-test:
 	@echo

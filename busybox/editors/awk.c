@@ -3133,7 +3133,6 @@ int awk_main(int argc, char **argv)
 	fprintf(stderr,"Hello AWK Busybox world(2)\n");
 
 
-	extern const char *opt_complementary;
 //agn: disable all command line stuff
 	opt_complementary = "v::f::"; /* -v and -f can occur multiple times */
 	opt = getopt32(argv, "F:v:f:W:", &opt_F, &list_v, &list_f, NULL);

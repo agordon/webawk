@@ -3,12 +3,11 @@
 
 typedef signed char smallint;
 typedef unsigned char smalluint;
-#define bool smalluint
 
 #define ALIGN1
 #define ALIGN2
 #define ALWAYS_INLINE
-#define NORETURN
+#define NORETURN __attribute__ ((noreturn))
 #define FAST_FUNC
 #define ENABLE_DESKTOP 0
 #define NOINLINE
@@ -58,6 +57,7 @@ struct globals *const ptr_to_globals;
 #include <sys/socket.h>
 #include <setjmp.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 
 #include <xregex.h>
@@ -70,6 +70,7 @@ void *xrealloc(void *old, size_t size) FAST_FUNC;
 extern char bb_process_escape_sequence(const char **ptr) FAST_FUNC;
 
 //Import from: libbb.c
+extern void bb_show_usage(void) NORETURN FAST_FUNC;
 extern void bb_error_msg(const char *s, ...) __attribute__ ((format (printf, 1, 2))) FAST_FUNC;
 extern void bb_error_msg_and_die(const char *s, ...) __attribute__ ((noreturn, format (printf, 1, 2))) FAST_FUNC;
 extern void bb_perror_msg(const char *s, ...) __attribute__ ((format (printf, 1, 2))) FAST_FUNC;
@@ -186,5 +187,12 @@ void llist_unlink(llist_t **head, llist_t *elm) FAST_FUNC;
 void llist_free(llist_t *elm, void (*freeit)(void *data)) FAST_FUNC;
 llist_t *llist_rev(llist_t *list) FAST_FUNC;
 llist_t *llist_find_str(llist_t *first, const char *str) FAST_FUNC;
+
+int xatoi_positive(const char *numstr) FAST_FUNC;
+
+extern const char *opt_complementary;
+extern uint32_t getopt32(char **argv, const char *applet_opts, ...) FAST_FUNC;
+
+extern int vasprintf(char **string_ptr, const char *format, va_list p) FAST_FUNC;
 
 #endif
