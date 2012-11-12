@@ -46,7 +46,7 @@ PRE_JS_SRC=js_emsc/pre_AWK.js
 POST_JS_SRC=js_emsc/post_AWK.js
 
 .PHONY: all
-all: cl
+all:
 oo-all:
 	@echo
 	@echo "WebAWK - AWK in Javascript"
