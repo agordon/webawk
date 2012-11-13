@@ -7,7 +7,20 @@
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
     <script src="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/js/bootstrap.min.js"></script>
     <link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css" rel="stylesheet">
+    <script src="http://d1n0x3qji82z53.cloudfront.net/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+
     <!-- link href="custom.css" rel="stylesheet" /-->
+
+<style type="text/css" media="screen">
+    #awk_program {
+	width: 500px;
+	height: 200px;
+	}
+
+   #awk_program_span {
+	min-height: 240px;
+}
+</style>
 
 
   </head>
@@ -51,6 +64,7 @@
 				<h3>AWK Examples</h3>
 				The most common scenario is running an AWK program (or script) on a given input file, to produce some output file.<p>
 				Choose an example below, and click <span class="label">run</span> to see how AWK processes the input file.<p>
+				You can also modify the AWK program and run it.</p>
 
 				Examples:
 				<select onchange="set_example_select(this)">
@@ -72,20 +86,17 @@
 3   C
 4   D</pre>
 			</div>
-			<div class="span4">
+			<div class="span8">
 				<h4>AWK program</h4>
-				<pre id="awk_program">
+				<div id="awk_program_span">
+				<div id="awk_program">
 BEGIN {
   print "Hello from Web/AWK World"
 }
-$2 ~ /C/ { print $1 * 2 }</pre>
-
-			<button class="button btn-primary" id="run_awk" onclick="go_awk_go()">Run</button>
-			</div>
-			<div class="span4">
-				<h4>Explanation</h4>
-				<div id="awk_program_explanation">
+$2 ~ /C/ { print $1 * 2 }</div>
 				</div>
+			<button class="button btn-primary" id="run_awk" onclick="go_awk_go()">Run</button>
+
 			</div>
 		</div>
 	
@@ -148,21 +159,17 @@ Please check the syntax and try again...
 
 var input_files = {};
 var awk_programs = {};
-var awk_explanations = {};
 
 input_files["ex1"] = "1   A\n2   B\n3   C\n";
 awk_programs["ex1" ] = "$1>2";
-awk_explanations["ex1"] = "AWK Patterns are filters - if an input line matches the filter - it will be printed" ;
 
 input_files["ex2"] = "3\n5\n12\n6\n11\n9.3\n";
 awk_programs["ex2" ] = "{ print ( $1 * 5 ) }";
-awk_explanations["ex2"] = "AWK Actions (inside the curly-braces) will perform an operation on the input file.<<p>Here, we print the value of the first field multiplied by 5." ;
 
 function set_example(value)
 {
 	$("#input_file").text(input_files[value]);
-	$("#awk_program").text(awk_programs[value]);
-	$("#awk_program_explanation").html(awk_explanations[value]);
+	editor.setValue(awk_programs[value]);
 }
 
 function set_example_select(sel)
@@ -173,12 +180,10 @@ function set_example_select(sel)
 
 function go_awk_go()
 {
-	var awk_source = $("#awk_program").text();
-
+	var awk_source = editor.getValue();
 	var sample_input = $("#input_file").text();
 
 	var awk = run_web_awk( awk_source, sample_input ) ;
-	console.log(awk);
 
 	$("#output_file").text (  awk.stderr + "\n" + awk.stdout );
 
@@ -190,6 +195,9 @@ function go_awk_go()
 	}
 }
 
+   var editor = ace.edit("awk_program");
+       editor.setTheme("ace/theme/github");
+   editor.getSession().setMode("ace/mode/javascript");
 
     </script>
   </body>
