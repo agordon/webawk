@@ -6,14 +6,13 @@ running entirely in Javascript, on the client-side web-browse (or on node.js).
 
 *NOTE*
 This is not a re-implementation of AWK in Javascript.
-The C source code of *oawk* ([The 'old' one-true AWK](http://en.wikipedia.org/wiki/AWK#Versions_and_implementations))
-from the [heirloom project](http://heirloom.sourceforge.net/tools.html) was compiled (unmodified) using [emscripten](http://emscripten.org/) (a LLVM-to-Javascript compiler).
+The C source code of [Busybox AWK](http://www.busybox.net/) was compiled (slightly modified) using [emscripten](http://emscripten.org/) (a LLVM-to-Javascript compiler).
 
 
 Using WebAWK
 ------------
 
-Online demo: **TODO: add URL**
+Online demo: http://agordon.github.com/webawk/
 
 Try locally:
 
@@ -24,18 +23,22 @@ Try locally:
     # use the supplied pre-built javascripts, to save time and effort.
     $ make prebuilt
 
+    # test the node.js version
+    # (need to have "node" installed, obviously)
+    $ make node-test
+
+    # test the web version
+    # (this will print the URL of the file you'll need to open in your browser)
+    $ make web-test
+
     # or build the javascripts, by compiling the C code.
     # see compilation instructions below.
     $ make node
     $ make web
 
-    # run the Javascript/AWK using "node" (need to have "node" installed, obviously)
-    $ make node-test
-
-    # or load it in your browser.
-    # (this will print the URL of the file you'll need to open in your browser)
-    $ make web-test
-
+    # To debug / add features, compile for a native binary
+    $ make bin
+    $ make bin-test
 
 
 Re-building the Javascript code
@@ -49,13 +52,24 @@ Follow the ([emscripten Tutorial](https://github.com/kripken/emscripten/wiki/Tut
 * To compile the *node.js version*, run ```make node``` .
 * The *node.js version* is configured to start immediately (i.e. calling AWK's `main()` function).
 * The fcompiled output file is `awk_node.js`, and using it with node should be equivalent to running `awk` on the command line (note:  equivalent to the old oawk, not GNU awk).
-* Due to node.js's FileSystem routines, you can't load files (with `-f`) or read input files without adding more javascript code.
-* Try:
+* Try the following (which are equivalent to `make node-test`):
 
 ```
        $ node awk_node.js 'BEGIN { print "Hello Node Awk World" ; exit }'
        vs.
        $ awk 'BEGIN { print "Hello Awk World" ; exit }'
+
+	or
+
+       $ node awk_node.js -f tests/my_program.awk tests/my_input.txt
+       vs
+       $ awk -f tests/my_program.awk tests/my_input.txt
+
+       # Technical note:
+       # the node version doesn't read the input files from 'tests' -
+       # the files are embedded in the javascript during compilation
+       # (so don't expect to change them and see the results)
+
 ```
 
 
@@ -65,22 +79,7 @@ Follow the ([emscripten Tutorial](https://github.com/kripken/emscripten/wiki/Tut
 * The compiled output file is `website/awk_web.js`. It contains the emscripten'd AWK code, wrapped in a single javascript function `run_web_awk()` .
 * Load the file `websize/awk_web.js` in your web-browser to run sample AWK programs.
 * The *web version* is configured with additional wrappers, and a friendly javascript function that runs awk on a given input. The source code for the wrappers is in `js_emsc` sub-directory.
-* To call awk from Javascript, use the following Javascript code:
-
-```
-	//The AWK program
-	var awk_source = '$1 > 2 { print $2}';
-
-	//The input file for the AWK program
-	var sample_input = "1 A\n2 B\n3 C\n";
-
-	//Run AWK
-	var awk = run_web_awk( awk_source, sample_input ) ;
-
-	console.log("exit code = " + awk.exit_code );
-	console.log("awk output = " + awk.stdout );
-	console.log("awk errors = " + awk.stderr );
-```
+* See `tests/web_test.js` for an example of calling this function.
 
 
 **Compilation Warnings**
@@ -118,20 +117,54 @@ Warning: Unresolved symbol: _llvm_expect_i32
 However, if you get compilation errors, or other unresolved symbols - that's a likely problem that might prevent AWK from functioning.
 
 
+Compiling the AWK binary
+------------------------
 
-Heirloom awk
-------------
+* To compile the *binry version*, run ```make bin``` (you'll need the `clang` compiler).
+* The compiled output file is `awk_bin`.
+* This file can be easily debugged with `gdb` (or similar debuggers).
 
-Website: http://heirloom.sourceforge.net/tools.html
 
-The `heirloom_emsc` sub-directory contains the `oawk` and `libuxre` (unmodified) from the heirloom source code (CVS version: revision 1.192,  date: 2010/10/09 21:19:23 ).
+BusyBox AWK
+-----------
 
-To get the entire heirloom source code, run this:
+This awk implementation is based (=copied) from Busybox's AWK implementation, written by Dmitry Zakharov <dmit@crp.bank.gov.ua>. It also uses many of the `libbb` functions.
 
-    # Fetch the latest heirloom code
-    cvs -d:pserver:anonymous@heirloom.cvs.sourceforge.net:/cvsroot/heirloom login
-    cvs -d:pserver:anonymous@heirloom.cvs.sourceforge.net:/cvsroot/heirloom co -P heirloom
+Website: http://www.busybox.net/
 
+The code is based on Busybox version 1.20.2 .
+
+To see the changes, run:
+
+```
+$ git clone git://github.com/agordon/webawk.git
+$ wget http://www.busybox.net/downloads/busybox-1.20.2.tar.bz2
+$ tar -xjf busybox-1.20.2.tar.bz2
+$ diff -rup busybox-1.20.2/ weback/busybox
+```
+
+NEWLIB
+------
+
+This implementation uses the Posix Regular Expression code and the `getopt()` functions from RedHat's newlib.
+
+Website: http://sourceware.org/newlib/
+
+The code is based on Newlib 1.20.0 .
+
+To see the changes, run:
+
+```
+$ git clone git://github.com/agordon/webawk.git
+$ wget ftp://sources.redhat.com/pub/newlib/newlib-1.20.0.tar.gz
+$ tar -xzf newline-1.20.0.tar.gz
+$ diff -rup newlib-1.20.0/newlib webawk/newlib
+```
+
+HACKING
+-------
+
+See the `HACKING` file for more details.
 
 
 Contact
@@ -141,10 +174,10 @@ email: gordon at cshl dot edu
 source: https://github.com/agordon/webawk.git
 
 
-
 License
 -------
 
-* The `libuxre` heirloom library is LGPL 2.1
-* The `oawk` heirloom program is BSD.
+* The newlib `getopt` code is public domain.
+* The newlib `Regex` code is BSD.
+* The busybox code is GPLv2.
 * All other files are BSD.
