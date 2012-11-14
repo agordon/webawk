@@ -26,6 +26,7 @@
 #define debug_printf_walker(...)  do {} while (0)
 #define debug_printf_eval(...)  do {} while (0)
 #define debug_printf_parse(...)  do {} while (0)
+//#define debug_printf_blocks(...) do{} while (0)
 
 #ifndef debug_printf_walker
 # define debug_printf_walker(...) (fprintf(stderr, __VA_ARGS__))
@@ -35,6 +36,9 @@
 #endif
 #ifndef debug_printf_parse
 # define debug_printf_parse(...) (fprintf(stderr, __VA_ARGS__))
+#endif
+#ifndef debug_printf_block
+# define debug_printf_block(...) (fprintf(stderr, __VA_ARGS__))
 #endif
 
 
@@ -1518,14 +1522,18 @@ static void parse_program(char *p)
 
 		seq = &mainseq;
 		if (tclass & TC_BEGIN) {
+			debug_printf_block("block: start TC_BEGIN (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			debug_printf_parse("%s: TC_BEGIN\n", __func__);
 			seq = &beginseq;
 			chain_group();
+			debug_printf_block("block: end TC_BEGIN  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 
 		} else if (tclass & TC_END) {
+			debug_printf_block("block: start TC_END  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			debug_printf_parse("%s: TC_END\n", __func__);
 			seq = &endseq;
 			chain_group();
+			debug_printf_block("block: start TC_END  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 
 		} else if (tclass & TC_FUNCDECL) {
 			debug_printf_parse("%s: TC_FUNCDECL\n", __func__);
@@ -1546,24 +1554,30 @@ static void parse_program(char *p)
 			clear_array(ahash);
 
 		} else if (tclass & TC_OPSEQ) {
+			debug_printf_block("block: start Pattern  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			debug_printf_parse("%s: TC_OPSEQ\n", __func__);
 			rollback_token();
 			cn = chain_node(OC_TEST);
 			cn->l.n = parse_expr(TC_OPTERM | TC_EOF | TC_GRPSTART);
 			if (t_tclass & TC_GRPSTART) {
+				debug_printf_block("block: start Action  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 				debug_printf_parse("%s: TC_GRPSTART\n", __func__);
 				rollback_token();
 				chain_group();
+				debug_printf_block("block: end Action  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			} else {
 				debug_printf_parse("%s: !TC_GRPSTART\n", __func__);
 				chain_node(OC_PRINT);
 			}
 			cn->r.n = mainseq.last;
+			debug_printf_block("block: end Pattern  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 
 		} else /* if (tclass & TC_GRPSTART) */ {
+			debug_printf_block("block: start Action-No-Pattern  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			debug_printf_parse("%s: TC_GRPSTART(?)\n", __func__);
 			rollback_token();
 			chain_group();
+			debug_printf_block("block: end Action-No-Pattern  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 		}
 	}
 	debug_printf_parse("%s: TC_EOF\n", __func__);
