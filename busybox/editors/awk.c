@@ -1,3 +1,6 @@
+#define WEBAWK_NOTIFICATIONS
+
+
 /* vi: set sw=4 ts=4: */
 /*
  * awk implementation for busybox
@@ -40,6 +43,42 @@
 #ifndef debug_printf_block
 # define debug_printf_block(...) (fprintf(stderr, __VA_ARGS__))
 #endif
+
+#ifdef WEBAWK_NOTIFICATIONS
+// Notification types
+// note: explicit values for the enum, to ensure
+//       consistancy with external code (e.g. javascript)
+typedef enum {
+	NTBT_NO_NOTIFICATION  = 0,
+
+	NTBT_ENTER_BEGIN_BLOCK= 1,
+	NTBT_EXIT_BEGIN_BLOCK = 2,
+
+	NTBT_ENTER_END_BLOCK  = 3,
+	NTBT_EXIT_END_BLOCK   = 4,
+
+	NTBT_ENTER_ACTION     = 5,
+	NTBT_EXIT_ACTION      = 6,
+
+	NTBT_ENTER_PATTERN    = 7,
+	NTBT_INTERNAL_TAKE_PATTERN=8, //will only be called if the pattern matched
+	NTBT_INTERNAL_EXIT_PATTERN=9, //will always be called once the pattern is done (possibly AFTER the action, if the pattern matched).
+	//NOTE: to the callback interface, only ONE notification will be sent:
+	//      either PATTERN_MATCH or PATTERN_NO_MATCH.
+
+	//The following two are not used internally,
+	//but will be sent to the external callback function,
+	//collating the TAKE_PATTERN/EXIT_PATTERN into one event.
+	NTBT_MATCH_PATTERN    = 10,
+	NTBT_NO_MATCH_PATTERN = 11,
+
+	NTBT_IMPLICIT_PATTERN = 12, // called when there's only an action, BEFORE the action notification.
+
+	NTBT_IMPLICIT_ACTION = 13 // called when there's only a pattern, AFTER the pattern notification (only if it matched).
+
+} NOTIFICATION_TYPE;
+
+#endif // WEBAWK_NOTIFICATIONS
 
 
 
@@ -122,6 +161,15 @@ typedef struct xhash_s {
 	struct hash_item_s **items;
 } xhash;
 
+#ifdef WEBAWK_NOTIFICATIONS
+typedef	struct notification_data_s { //Notify Event
+		int type; //one of NTBT_xxx
+		int start_char_pos; //NOTE: this is block, not per-line ??
+		int end_char_pos;
+} notification_data;
+#endif //WEBAWK_NOTIFICATIONS
+
+
 /* Tree node */
 typedef struct node_s {
 	uint32_t info;
@@ -132,6 +180,9 @@ typedef struct node_s {
 		int aidx;
 		char *new_progname;
 		regex_t *re;
+#ifdef WEBAWK_NOTIFICATIONS
+		struct notification_data_s nt;
+#endif //WEBAWK_NOTIFICATIONS
 	} l;
 	union {
 		struct node_s *n;
@@ -277,7 +328,10 @@ enum {
 	OC_DONE = 0x2800,
 
 	ST_IF = 0x3000,         ST_DO = 0x3100,         ST_FOR = 0x3200,
-	ST_WHILE = 0x3300
+	ST_WHILE = 0x3300,
+
+	//agn: internal command - generate a notify event
+	NT_NOTIFY = 0x4000
 };
 
 /* simple builtins */
@@ -444,7 +498,12 @@ struct globals {
 	smallint nextfile;
 	smallint is_f0_split;
 	smallint t_rollback;
+#ifdef WEBAWK_NOTIFICATIONS
+	smallint last_pattern_match_status;
+	int pos_in_line;
+#endif //WEBAWK_NOTIFICATIONS
 };
+
 struct globals2 {
 	uint32_t t_info; /* often used */
 	uint32_t t_tclass;
@@ -521,6 +580,11 @@ struct globals2 G;
 #define fsplitter    (G.fsplitter   )
 #define rsplitter    (G.rsplitter   )
 
+#ifdef WEBAWK_NOTIFICATIONS
+#define last_pattern_match_status (G1.last_pattern_match_status)
+#define pos_in_line  (G1.pos_in_line)
+#endif
+
 #define INIT_G()
 #if 0
 #define INIT_G() do { \
@@ -551,6 +615,41 @@ static const char EMSG_NOT_ARRAY[] ALIGN1 = "Not an array";
 static const char EMSG_POSSIBLE_ERROR[] ALIGN1 = "Possible syntax error";
 static const char EMSG_UNDEF_FUNC[] ALIGN1 = "Call to undefined function";
 static const char EMSG_NO_MATH[] ALIGN1 = "Math support is not compiled in";
+
+#ifdef WEBAWK_NOTIFICATIONS
+const char const* notification_name(NOTIFICATION_TYPE type)
+{
+	switch (type)
+	{
+	case NTBT_NO_NOTIFICATION:  return "(no-notification)";
+
+	case NTBT_ENTER_BEGIN_BLOCK:  return "BEGIN(enter)";
+	case NTBT_EXIT_BEGIN_BLOCK:   return "BEGIN(exit)";
+
+	case NTBT_ENTER_END_BLOCK:    return "END(enter)";
+	case NTBT_EXIT_END_BLOCK:     return "END(exit)";
+
+	case NTBT_ENTER_ACTION:       return "ACTION(enter)";
+	case NTBT_EXIT_ACTION:        return "ACTION(exit)";
+
+	case NTBT_ENTER_PATTERN:      return "PATTERN(enter)";
+	case NTBT_INTERNAL_TAKE_PATTERN:
+								  return "PATTERN(internal,matched)";
+	case NTBT_INTERNAL_EXIT_PATTERN:
+								  return "PATTERN(internal,exit)";
+
+	case NTBT_MATCH_PATTERN:     return "PATTERN(matched)";
+	case NTBT_NO_MATCH_PATTERN:  return "PATTERN(no-match)";
+
+	case NTBT_IMPLICIT_PATTERN:  return "PATTERN(implicit-match)";
+
+	case NTBT_IMPLICIT_ACTION:   return "ACTION(implicit-print)";
+
+	default:
+		return "Internal Error: unknown block_type";
+	}
+}
+#endif //WEBAWK_NOTIFICATIONS
 
 static void zero_out_var(var *vp)
 {
@@ -683,6 +782,9 @@ static char *skip_spaces(char *p)
 		if (*p == '\\' && p[1] == '\n') {
 			p++;
 			t_lineno++;
+#ifdef WEBAWK_NOTIFICATIONS
+			pos_in_line = 1;
+#endif
 		} else if (*p != ' ' && *p != '\t') {
 			break;
 		}
@@ -1022,8 +1124,12 @@ static uint32_t next_token(uint32_t expected)
 			while (*p != '\n' && *p != '\0')
 				p++;
 
-		if (*p == '\n')
+		if (*p == '\n') {
 			t_lineno++;
+#ifdef WEBAWK_NOTIFICATIONS
+			pos_in_line=1;
+#endif
+		}
 
 		if (*p == '\0') {
 			tc = TC_EOF;
@@ -1353,6 +1459,57 @@ static node *chain_node(uint32_t info)
 	return n;
 }
 
+#ifdef WEBAWK_NOTIFICATIONS
+//create a notification event.
+//if "prev" is not NULL, it is assumed to be the related "previous"
+//  event, and the start/end pos of BOTH will be updated.
+static node* chain_notification(NOTIFICATION_TYPE type, node* /*IN/OUT*/ prev)
+{
+	node *n;
+
+	debug_printf_block("notification parser: adding '%s' (g_pos=%d g_lineno=%d)\n", notification_name(type), g_pos,g_lineno);
+
+	n = chain_node(NT_NOTIFY);
+	n->l.nt.type = type;
+
+	if (prev==NULL) {
+		n->l.nt.start_char_pos = g_pos;
+		n->l.nt.end_char_pos = 0; //to be updated later on
+	} else {
+		n->l.nt.start_char_pos = prev->l.nt.start_char_pos;
+		n->l.nt.end_char_pos = g_pos;
+		prev->l.nt.end_char_pos = g_pos;
+	}
+	return n;
+}
+
+void process_notification(const node* op)
+{
+	NOTIFICATION_TYPE type_to_send = op->l.nt.type;
+
+	if (op->l.nt.type==NTBT_ENTER_PATTERN) {
+		last_pattern_match_status = 0 ; //reset the status;
+    } else if (op->l.nt.type==NTBT_INTERNAL_TAKE_PATTERN) {
+		last_pattern_match_status = 1 ; //mark the matched pattern
+		type_to_send = NTBT_MATCH_PATTERN ;
+	}
+	else if (op->l.nt.type==NTBT_INTERNAL_EXIT_PATTERN) {
+		if (last_pattern_match_status) {
+			type_to_send = NTBT_NO_NOTIFICATION;
+		} else {
+			type_to_send = NTBT_NO_MATCH_PATTERN;
+		}
+	}
+
+	debug_printf_block("notification runtime: %s\n\tSending: %s\n\t(line=%d pos=%d->%d)\n",
+					notification_name(op->l.nt.type),
+					notification_name(type_to_send),
+					op->lineno,
+					op->l.nt.start_char_pos, op->l.nt.end_char_pos
+					);
+}
+#endif //WEBAWK_NOTIFICATIONS
+
 static void chain_expr(uint32_t info)
 {
 	node *n;
@@ -1510,8 +1667,16 @@ static void parse_program(char *p)
 	func *f;
 	var *v;
 
+#ifdef WEBAWK_NOTIFICATIONS
+	node *nt_enter;
+	node *nt_pattern_enter;
+#endif //WEBAWK_NOTIFICATIONS
+
 	g_pos = p;
 	t_lineno = 1;
+#ifdef WEBAWK_NOTIFICATIONS
+	pos_in_line = 1;
+#endif
 	while ((tclass = next_token(TC_EOF | TC_OPSEQ | TC_GRPSTART |
 			TC_OPTERM | TC_BEGIN | TC_END | TC_FUNCDECL)) != TC_EOF) {
 
@@ -1522,18 +1687,26 @@ static void parse_program(char *p)
 
 		seq = &mainseq;
 		if (tclass & TC_BEGIN) {
-			debug_printf_block("block: start TC_BEGIN (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			debug_printf_parse("%s: TC_BEGIN\n", __func__);
 			seq = &beginseq;
+#ifdef WEBAWK_NOTIFICATIONS
+			nt_enter = chain_notification(NTBT_ENTER_BEGIN_BLOCK,NULL);
+#endif
 			chain_group();
-			debug_printf_block("block: end TC_BEGIN  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
+#ifdef WEBAWK_NOTIFICATIONS
+			chain_notification(NTBT_EXIT_BEGIN_BLOCK,nt_enter);
+#endif
 
 		} else if (tclass & TC_END) {
-			debug_printf_block("block: start TC_END  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			debug_printf_parse("%s: TC_END\n", __func__);
 			seq = &endseq;
+#ifdef WEBAWK_NOTIFICATIONS
+			nt_enter = chain_notification(NTBT_ENTER_END_BLOCK,NULL);
+#endif
 			chain_group();
-			debug_printf_block("block: start TC_END  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
+#ifdef WEBAWK_NOTIFICATIONS
+			chain_notification(NTBT_EXIT_END_BLOCK,nt_enter);
+#endif
 
 		} else if (tclass & TC_FUNCDECL) {
 			debug_printf_parse("%s: TC_FUNCDECL\n", __func__);
@@ -1554,30 +1727,50 @@ static void parse_program(char *p)
 			clear_array(ahash);
 
 		} else if (tclass & TC_OPSEQ) {
-			debug_printf_block("block: start Pattern  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			debug_printf_parse("%s: TC_OPSEQ\n", __func__);
+#ifdef WEBAWK_NOTIFICATIONS
+			nt_pattern_enter = chain_notification(NTBT_ENTER_PATTERN,NULL);
+#endif
 			rollback_token();
 			cn = chain_node(OC_TEST);
 			cn->l.n = parse_expr(TC_OPTERM | TC_EOF | TC_GRPSTART);
+#ifdef WEBAWK_NOTIFICATIONS
+			chain_notification(NTBT_INTERNAL_TAKE_PATTERN,nt_pattern_enter);
+#endif
 			if (t_tclass & TC_GRPSTART) {
-				debug_printf_block("block: start Action  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 				debug_printf_parse("%s: TC_GRPSTART\n", __func__);
+#ifdef WEBAWK_NOTIFICATIONS
+				nt_enter = chain_notification(NTBT_ENTER_ACTION,NULL);
+#endif
 				rollback_token();
 				chain_group();
-				debug_printf_block("block: end Action  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
+#ifdef WEBAWK_NOTIFICATIONS
+				chain_notification(NTBT_EXIT_ACTION,nt_enter);
+#endif
 			} else {
+#ifdef WEBAWK_NOTIFICATIONS
+				chain_notification(NTBT_IMPLICIT_ACTION,NULL);
+#endif
+
 				debug_printf_parse("%s: !TC_GRPSTART\n", __func__);
 				chain_node(OC_PRINT);
 			}
 			cn->r.n = mainseq.last;
-			debug_printf_block("block: end Pattern  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
+#ifdef WEBAWK_NOTIFICATIONS
+			chain_notification(NTBT_INTERNAL_EXIT_PATTERN,nt_pattern_enter);
+#endif
 
 		} else /* if (tclass & TC_GRPSTART) */ {
-			debug_printf_block("block: start Action-No-Pattern  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
 			debug_printf_parse("%s: TC_GRPSTART(?)\n", __func__);
 			rollback_token();
+#ifdef WEBAWK_NOTIFICATIONS
+			chain_notification(NTBT_IMPLICIT_PATTERN,NULL);
+			nt_enter = chain_notification(NTBT_ENTER_ACTION,NULL);
+#endif
 			chain_group();
-			debug_printf_block("block: end Action-No-Pattern  (g_pos=%d g_lineno=%d)\n", g_pos,g_lineno);
+#ifdef WEBAWK_NOTIFICATIONS
+			chain_notification(NTBT_EXIT_ACTION,NULL);
+#endif
 		}
 	}
 	debug_printf_parse("%s: TC_EOF\n", __func__);
@@ -2649,8 +2842,9 @@ static var *evaluate(node *op, var *res)
 			break;
 
 		case XC( OC_TERNARY ):
-			if ((op->r.n->info & OPCLSMASK) != OC_COLON)
+			if ((op->r.n->info & OPCLSMASK) != OC_COLON) {
 				syntax_error(EMSG_POSSIBLE_ERROR);
+			}
 			res = evaluate(istrue(L.v) ? op->r.n->l.n : op->r.n->r.n, res);
 			break;
 
@@ -2960,6 +3154,18 @@ static var *evaluate(node *op, var *res)
 			setvar_i(res, (i == 0) ^ (opn & 1));
 			break;
 		}
+
+#ifdef WEBAWK_NOTIFICATIONS
+		case XC(NT_NOTIFY):
+			process_notification(op);
+
+			//This is an ugly hack:
+			//we want to advance to the next instructions silently,
+			//so let's get the next one and force the next instructions,
+			//skipping the SHIFT_TIL_THIS & RECUR_FROM_THIS checks below
+			op = op->a.n;
+			continue;
+#endif //WEBAWK_NOTIFICATIONS
 
 		default:
 			syntax_error(EMSG_POSSIBLE_ERROR);
