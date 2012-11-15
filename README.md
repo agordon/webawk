@@ -13,6 +13,7 @@ Using WebAWK
 ------------
 
 Online demo: http://agordon.github.com/webawk/
+Interactive AWK demo (requires a recent web-browser): http://agordon.github.com/webawk/awk_web_worker.html
 
 Try locally:
 
