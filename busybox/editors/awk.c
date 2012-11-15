@@ -74,7 +74,13 @@ typedef enum {
 
 	NTBT_IMPLICIT_PATTERN = 12, // called when there's only an action, BEFORE the action notification.
 
-	NTBT_IMPLICIT_ACTION = 13 // called when there's only a pattern, AFTER the pattern notification (only if it matched).
+	NTBT_IMPLICIT_ACTION = 13, // called when there's only a pattern, AFTER the pattern notification (only if it matched).
+
+	NTBT_LAST_RULE       = 14, // Last rule means no more patterns/actions - 
+							  // so read the next line and start from the first rule.
+	NTBT_NEXT			 = 15, // 'next' called - interrupt flowcontrol
+	NTBT_NEXTFILE		 = 16, // 'nextfile' called - interrupt flowcontrol
+	NTBT_EXIT			 = 17 // 'exit' called - interrupt flowcontrol
 
 } NOTIFICATION_TYPE;
 
@@ -646,6 +652,12 @@ const char const* notification_name(NOTIFICATION_TYPE type)
 	case NTBT_IMPLICIT_PATTERN:  return "PATTERN(implicit-match)";
 
 	case NTBT_IMPLICIT_ACTION:   return "ACTION(implicit-print)";
+
+	case NTBT_LAST_RULE:         return "LAST_RULE";
+
+	case NTBT_NEXT:              return "NEXT";
+	case NTBT_NEXTFILE:          return "NEXTFILE";
+	case NTBT_EXIT:              return "EXIT";
 
 	default:
 		return "Internal Error: unknown block_type";
@@ -1687,6 +1699,14 @@ static void chain_group(void)
 		/* delete, next, nextfile, return, exit */
 		default:
 			debug_printf_parse("%s: default\n", __func__);
+#ifdef WEBAWK_NOTIFICATIONS
+			if ((t_info & OPCLSMASK)==OC_NEXT)
+				chain_notification(NTBT_NEXT,NULL);
+			if ((t_info & OPCLSMASK)==OC_EXIT)
+				chain_notification(NTBT_EXIT,NULL);
+			if ((t_info & OPCLSMASK)==OC_NEXTFILE)
+				chain_notification(NTBT_NEXTFILE,NULL);
+#endif
 			chain_expr(t_info);
 		}
 	}
@@ -1810,6 +1830,8 @@ static void parse_program(char *p)
 #endif
 		}
 	}
+	chain_notification(NTBT_LAST_RULE,NULL);
+
 	debug_printf_parse("%s: TC_EOF\n", __func__);
 }
 
