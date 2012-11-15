@@ -254,6 +254,9 @@ function go_awk_go()
 	src_editor.setHighlightActiveLine(false);
 	input_editor.setHighlightActiveLine(false);
 
+	$("#awk_error_msg").hide();
+	$("#output_file").text( "" );
+
 	var awk_source = src_editor.getValue();
 	var sample_input = input_editor.getValue();
 
