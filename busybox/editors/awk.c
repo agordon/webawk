@@ -61,26 +61,26 @@ typedef enum {
 	NTBT_EXIT_ACTION      = 6,
 
 	NTBT_ENTER_PATTERN    = 7,
-	NTBT_INTERNAL_TAKE_PATTERN=8, //will only be called if the pattern matched
-	NTBT_INTERNAL_EXIT_PATTERN=9, //will always be called once the pattern is done (possibly AFTER the action, if the pattern matched).
+
+	NTBT_TAKE_PATTERN=8, //will only be called if the pattern matched
+	NTBT_EXIT_PATTERN=9, //will always be called once the pattern is done (possibly AFTER the action, if the pattern matched).
 	//NOTE: to the callback interface, only ONE notification will be sent:
-	//      either PATTERN_MATCH or PATTERN_NO_MATCH.
+	//      either TAKE_PATTERN (indicating a match) or EXIT_PATTERN(indicating no match)
 
-	//The following two are not used internally,
-	//but will be sent to the external callback function,
-	//collating the TAKE_PATTERN/EXIT_PATTERN into one event.
-	NTBT_MATCH_PATTERN    = 10,
-	NTBT_NO_MATCH_PATTERN = 11,
+	NTBT_IMPLICIT_PATTERN = 10, // called when there's only an action, BEFORE the action notification.
 
-	NTBT_IMPLICIT_PATTERN = 12, // called when there's only an action, BEFORE the action notification.
+	NTBT_IMPLICIT_ACTION = 11, // called when there's only a pattern, AFTER the pattern notification (only if it matched).
 
-	NTBT_IMPLICIT_ACTION = 13, // called when there's only a pattern, AFTER the pattern notification (only if it matched).
-
-	NTBT_LAST_RULE       = 14, // Last rule means no more patterns/actions - 
+	NTBT_LAST_RULE       = 12, // Last rule means no more patterns/actions - 
 							  // so read the next line and start from the first rule.
-	NTBT_NEXT			 = 15, // 'next' called - interrupt flowcontrol
-	NTBT_NEXTFILE		 = 16, // 'nextfile' called - interrupt flowcontrol
-	NTBT_EXIT			 = 17 // 'exit' called - interrupt flowcontrol
+	NTBT_NEXT			 = 13, // 'next' called - interrupt flowcontrol
+	NTBT_NEXTFILE		 = 14, // 'nextfile' called - interrupt flowcontrol
+	NTBT_EXIT			 = 15, // 'exit' called - interrupt flowcontrol
+
+	NTBT_GETLINE		 = 16, // getline was explicitly or implicitly called
+
+	NTBT_END_OF_FILE     = 17, //End of a single file - NOT USED
+	NTBT_END_OF_FILES    = 18  //End of all files - finished program, moving to END block.
 
 } NOTIFICATION_TYPE;
 
@@ -641,13 +641,10 @@ const char const* notification_name(NOTIFICATION_TYPE type)
 	case NTBT_EXIT_ACTION:        return "ACTION(exit)";
 
 	case NTBT_ENTER_PATTERN:      return "PATTERN(enter)";
-	case NTBT_INTERNAL_TAKE_PATTERN:
-								  return "PATTERN(internal,matched)";
-	case NTBT_INTERNAL_EXIT_PATTERN:
-								  return "PATTERN(internal,exit)";
-
-	case NTBT_MATCH_PATTERN:     return "PATTERN(matched)";
-	case NTBT_NO_MATCH_PATTERN:  return "PATTERN(no-match)";
+	case NTBT_TAKE_PATTERN:
+								  return "PATTERN(matched)";
+	case NTBT_EXIT_PATTERN:
+								  return "PATTERN(exit)";
 
 	case NTBT_IMPLICIT_PATTERN:  return "PATTERN(implicit-match)";
 
@@ -658,6 +655,11 @@ const char const* notification_name(NOTIFICATION_TYPE type)
 	case NTBT_NEXT:              return "NEXT";
 	case NTBT_NEXTFILE:          return "NEXTFILE";
 	case NTBT_EXIT:              return "EXIT";
+
+	case NTBT_GETLINE:			 return "GETLINE";
+
+	case NTBT_END_OF_FILE:       return "END_OF_FILE";
+	case NTBT_END_OF_FILES:      return "END_OF_FILES";
 
 	default:
 		return "Internal Error: unknown block_type";
@@ -1525,33 +1527,40 @@ void notification_adjust_pattern_positions(
 				pat_match->l.nt.end_char_pos;
 }
 
+void send_notification(const struct notification_data_s *nt)
+{
+	debug_printf_block("notification callback: %s\n\t(line=%d pos=%d -> line=%d pos=%d)\n",
+					notification_name(nt->type),
+					nt->start_line,
+					nt->start_char_pos,
+					nt->end_line,
+					nt->end_char_pos);
+}
+
+
 void process_notification(const node* op)
 {
-	NOTIFICATION_TYPE type_to_send = op->l.nt.type;
+	/*
+	   NOTE about pattern notifications:
+	   Internally (by "evaluate()") - NTBT_EXIT_PATTERN will always be called,
+	   after the pattern (and possibly the associated action) was processeed.
 
+	   Externally (to the callback notification), we only send NTBT_EXIT_PATTERN
+	   if the pattern DIDN'T match.
+	 */
 	if (op->l.nt.type==NTBT_ENTER_PATTERN) {
 		last_pattern_match_status = 0 ; //reset the status;
-    } else if (op->l.nt.type==NTBT_INTERNAL_TAKE_PATTERN) {
+    } else if (op->l.nt.type==NTBT_TAKE_PATTERN) {
 		last_pattern_match_status = 1 ; //mark the matched pattern
-		type_to_send = NTBT_MATCH_PATTERN ;
 	}
-	else if (op->l.nt.type==NTBT_INTERNAL_EXIT_PATTERN) {
-		if (last_pattern_match_status) {
-			type_to_send = NTBT_NO_NOTIFICATION;
-		} else {
-			type_to_send = NTBT_NO_MATCH_PATTERN;
-		}
+	else if (op->l.nt.type==NTBT_EXIT_PATTERN && last_pattern_match_status) {
+		debug_printf_block("notification runtime: supressing NTBT_EXIT_PATTERN after successful pattern match\n");
+		return ;
 	}
 
-	debug_printf_block("notification runtime: %s\n\tSending: %s\n\t(line=%d pos=%d -> line=%d pos=%d)\n",
-					notification_name(op->l.nt.type),
-					notification_name(type_to_send),
-					op->l.nt.start_line,
-					op->l.nt.start_char_pos,
-					op->l.nt.end_line,
-					op->l.nt.end_char_pos
-					);
+	send_notification(&op->l.nt);
 }
+
 #endif //WEBAWK_NOTIFICATIONS
 
 static void chain_expr(uint32_t info)
@@ -1789,7 +1798,7 @@ static void parse_program(char *p)
 			cn = chain_node(OC_TEST);
 			cn->l.n = parse_expr(TC_OPTERM | TC_EOF | TC_GRPSTART);
 #ifdef WEBAWK_NOTIFICATIONS
-			nt_pattern_match = chain_notification(NTBT_INTERNAL_TAKE_PATTERN,nt_pattern_enter);
+			nt_pattern_match = chain_notification(NTBT_TAKE_PATTERN,nt_pattern_enter);
 #endif
 			if (t_tclass & TC_GRPSTART) {
 				debug_printf_parse("%s: TC_GRPSTART\n", __func__);
@@ -1811,7 +1820,7 @@ static void parse_program(char *p)
 			}
 			cn->r.n = mainseq.last;
 #ifdef WEBAWK_NOTIFICATIONS
-			nt_pattern_exit = chain_notification(NTBT_INTERNAL_EXIT_PATTERN,nt_pattern_enter);
+			nt_pattern_exit = chain_notification(NTBT_EXIT_PATTERN,nt_pattern_enter);
 			notification_adjust_pattern_positions(
 					nt_pattern_enter,nt_pattern_match,
 					nt_pattern_exit);
@@ -2165,6 +2174,9 @@ static int awk_getline(rstream *rsm, var *v)
 	int fd, so, eo, r, rp;
 	char c, *m, *s;
 
+#ifdef WEBAWK_NOTIFICATIONS
+#endif
+
 	debug_printf_eval("entered %s()\n", __func__);
 
 	/* we're using our own buffer since we need access to accumulating
@@ -2254,6 +2266,20 @@ static int awk_getline(rstream *rsm, var *v)
 	rsm->size = size;
 
 	debug_printf_eval("returning from %s(): %d\n", __func__, r);
+
+#ifdef WEBAWK_NOTIFICATIONS
+	if (r) {
+		struct notification_data_s nt;
+		nt.type = NTBT_GETLINE;
+		//TODO: this (wrongly) assumes each record is a line.
+		//      If the user changes RS, this won't work...
+		nt.start_line = (int)getvar_i(intvar[NR])+1;
+		nt.end_line = nt.start_line;
+		nt.start_char_pos = 0;
+		nt.end_char_pos = 0;
+		send_notification(&nt);
+	}
+#endif
 
 	return r;
 }
@@ -3484,6 +3510,14 @@ int awk_main(int argc, char **argv)
 
 		iF = next_input_file();
 	}
+
+#ifdef WEBAWK_NOTIFICATIONS
+	struct notification_data_s nt;
+	nt.type = NTBT_END_OF_FILES;
+	nt.start_line = nt.end_line = 0 ;
+	nt.start_char_pos = nt.end_char_pos = 0 ;
+	send_notification(&nt);
+#endif
 
 	awk_exit(EXIT_SUCCESS);
 	return 0;
