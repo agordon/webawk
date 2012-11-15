@@ -29,7 +29,7 @@
 #define debug_printf_walker(...)  do {} while (0)
 #define debug_printf_eval(...)  do {} while (0)
 #define debug_printf_parse(...)  do {} while (0)
-//#define debug_printf_blocks(...) do{} while (0)
+#define debug_printf_block(...) do{} while (0)
 
 #ifndef debug_printf_walker
 # define debug_printf_walker(...) (fprintf(stderr, __VA_ARGS__))
@@ -1529,12 +1529,33 @@ void notification_adjust_pattern_positions(
 
 void send_notification(const struct notification_data_s *nt)
 {
-	debug_printf_block("notification callback: %s\n\t(line=%d pos=%d -> line=%d pos=%d)\n",
+
+#ifdef WEBAWK_CALLBACK_CUSTOM
+	char buf[1024];
+	snprintf(buf,sizeof(buf),"webawk_notification_callback(%d,%d,%d,%d,%d)",
+					(int)nt->type,
+					nt->start_line,
+					nt->start_char_pos,
+					nt->end_line,
+					nt->end_char_pos);
+	emscripten_run_script(buf);
+#elif WEBAWK_CALLBACK_CONSOLE
+	char buf[1024];
+	snprintf(buf,sizeof(buf),"console.log('Notification: %s , from line: %d pos %d  -- to line: %d pos: %d')",
 					notification_name(nt->type),
 					nt->start_line,
 					nt->start_char_pos,
 					nt->end_line,
 					nt->end_char_pos);
+	emscripten_run_script(buf);
+#else
+	fprintf(stderr,"notification callback: %s\n\t(line=%d pos=%d -> line=%d pos=%d)\n",
+					notification_name(nt->type),
+					nt->start_line,
+					nt->start_char_pos,
+					nt->end_line,
+					nt->end_char_pos);
+#endif
 }
 
 

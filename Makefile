@@ -37,7 +37,8 @@ BUSYBOX_AWK_SRC=busybox/editors/awk.c \
 
 BUSYBOX_INCLUDE_PATH=-Ibusybox/include -Inewlib/libc/posix -Inewlib/libc/stdlib
 
-OPT_FLAGS=-O2 --closure 1 --minify 1
+#OPT_FLAGS=-O2 --closure 1 --minify 1
+OPT_FLAGS=-O0
 
 JS_FLAGS=-s WARN_ON_UNDEFINED_SYMBOLS=1 \
 	-s CATCH_EXIT_CODE=1
@@ -88,9 +89,10 @@ check_emcc:
 .PHONY: web
 web: website/awk_web.js
 
-website/awk_web.js: $(BUSYBOX_AWK_SRC) $(NEWLIB_SRC)
+website/awk_web.js: $(BUSYBOX_AWK_SRC) $(NEWLIB_SRC) $(PRE_JS_SRC) $(POST_JS_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
 		$(BUSYBOX_INCLUDE_PATH) \
+		-DWEBAWK_CALLBACK_CUSTOM \
 		$(BUSYBOX_AWK_SRC) \
 		$(NEWLIB_SRC) \
 		--pre-js $(PRE_JS_SRC) \
@@ -131,6 +133,7 @@ node: awk_node.js
 # in the jvascript (there's no easy filesystem access from the node script)
 awk_node.js: check_emcc $(BUSYBOX_AWK_SRC) $(NEWLIB_SRC)
 	$(EMCC) $(OPT_FLAGS) $(JS_FLAGS) \
+		-DWEBAWK_CALLBACK_CONSOLE \
 		$(BUSYBOX_INCLUDE_PATH) \
 		$(BUSYBOX_AWK_SRC) \
 		$(NEWLIB_SRC) \

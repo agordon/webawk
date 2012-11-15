@@ -20,3 +20,55 @@
 
 	return result;
 }
+
+//NOTE: These values must match the defined enum in awk.c
+var NTBT_ENTER_BEGIN_BLOCK= 1;
+var NTBT_EXIT_BEGIN_BLOCK = 2;
+var NTBT_ENTER_END_BLOCK  = 3;
+var NTBT_EXIT_END_BLOCK   = 4;
+var NTBT_ENTER_ACTION     = 5;
+var NTBT_EXIT_ACTION      = 6;
+var NTBT_ENTER_PATTERN    = 7;
+var NTBT_TAKE_PATTERN=8; //will only be called if the pattern matched
+var NTBT_EXIT_PATTERN=9; //will only be called if the pattern didn't match
+var NTBT_IMPLICIT_PATTERN = 10; // called when there's only an action, BEFORE the action notification.
+var NTBT_IMPLICIT_ACTION = 11; // called when there's only a pattern, AFTER the pattern notification (only if it matched).
+var NTBT_LAST_RULE       = 12; // Last rule means no more patterns/actions - 
+var NTBT_NEXT			 = 13; // 'next' called - interrupt flowcontrol
+var NTBT_NEXTFILE		 = 14; // 'nextfile' called - interrupt flowcontrol
+var NTBT_EXIT			 = 15; // 'exit' called - interrupt flowcontrol
+var NTBT_GETLINE		 = 16; // getline was explicitly or implicitly called
+var NTBT_END_OF_FILE     = 17; //End of a single file - NOT USED
+var NTBT_END_OF_FILES    = 18;  //End of all files - finished program; moving to END block.
+
+
+var webawk_notification_names = {};
+webawk_notification_names[NTBT_ENTER_BEGIN_BLOCK] = "BEGIN(enter)";
+webawk_notification_names[NTBT_EXIT_BEGIN_BLOCK]  = "BEGIN(exit)";
+webawk_notification_names[NTBT_ENTER_END_BLOCK]   = "END(enter)";
+webawk_notification_names[NTBT_EXIT_END_BLOCK]    = "END(exit)";
+webawk_notification_names[NTBT_ENTER_ACTION]      = "ACTION(enter)";
+webawk_notification_names[NTBT_EXIT_ACTION]       = "ACTION(exit)";
+webawk_notification_names[NTBT_ENTER_PATTERN]     = "PATTERN(enter)";
+webawk_notification_names[NTBT_TAKE_PATTERN]      = "PATTERN(matched)";
+webawk_notification_names[NTBT_EXIT_PATTERN]      = "PATTERN(no-match)"
+webawk_notification_names[NTBT_IMPLICIT_PATTERN]  = "PATTERN(implicit)";
+webawk_notification_names[NTBT_IMPLICIT_ACTION]   = "ACTION(implicit)";
+webawk_notification_names[NTBT_LAST_RULE]         = "LAST_RULE";
+webawk_notification_names[NTBT_NEXT]              = "NEXT";
+webawk_notification_names[NTBT_NEXTFILE]          = "NEXTFILE";
+webawk_notification_names[NTBT_EXIT]              = "EXIT";
+webawk_notification_names[NTBT_GETLINE]           = "GETLINE";
+webawk_notification_names[NTBT_END_OF_FILE]       = "END_OF_FILE";
+webawk_notification_names[NTBT_END_OF_FILES]      = "END_OF_ALL_FILES";
+
+//Define a default callback function, if needed
+if (typeof webawk_notification_callback == 'undefined') {
+	console.log("Hello Developer! - I'm now defining a stub webawk_notification_callback() function.");
+
+	webawk_notification_names = function (type,start_line,start_pos,end_line,end_pos)
+	{
+		console.log("Webawk Notification: " + webawk_notification_names[type]);
+	}
+}
+
