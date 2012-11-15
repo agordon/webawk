@@ -62,13 +62,45 @@ webawk_notification_names[NTBT_GETLINE]           = "GETLINE";
 webawk_notification_names[NTBT_END_OF_FILE]       = "END_OF_FILE";
 webawk_notification_names[NTBT_END_OF_FILES]      = "END_OF_ALL_FILES";
 
-//Define a default callback function, if needed
-if (typeof webawk_notification_callback == 'undefined') {
-	console.log("Hello Developer! - I'm now defining a stub webawk_notification_callback() function.");
+//busy-wait loop sleep is an ugly hack, but we're in a web-worker.
+function pausecomp(millis) {
+	var date = new Date();
+	var curDate = null;
 
-	webawk_notification_callback = function (type,start_line,start_pos,end_line,end_pos)
-	{
-		console.log("Webawk Notification: " + webawk_notification_names[type]);
-	}
+	do { curDate = new Date(); }
+	while(curDate-date < millis);
 }
 
+function webawk_notification_callback (type,start_line,start_pos,end_line,end_pos)
+{
+	self.postMessage({
+			'event' : 'notification',
+			'type' : type,
+			'type_name' : webawk_notification_names[type],
+			'start_line' : start_line,
+			'start_pos'  : start_pos,
+			'end_line'   : end_line,
+			'end_pos'    : end_pos
+			});
+
+	pausecomp(2000);
+}
+
+//This is a Web-Worker
+self.onmessage = function(event) {
+	switch(event.data.type)
+	{
+	case "run_awk":
+		var awk_program = event.data.awk_program;
+		var input_data  = event.data.input_data;
+
+		var awk_result = run_web_awk(awk_program, input_data);
+		var exit_code = awk_result.exit_code ;
+
+		self.postMessage({
+					'event': 'exit',
+					'exit_code': exit_code
+				});
+		break;
+	}
+};
