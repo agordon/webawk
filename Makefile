@@ -37,14 +37,17 @@ BUSYBOX_AWK_SRC=busybox/editors/awk.c \
 
 BUSYBOX_INCLUDE_PATH=-Ibusybox/include -Inewlib/libc/posix -Inewlib/libc/stdlib
 
-#OPT_FLAGS=-O2 --closure 1 --minify 1
-OPT_FLAGS=-O0
+OPT_FLAGS=-O2 --closure 1 --minify 1
+#OPT_FLAGS=-O0
 
 JS_FLAGS=-s WARN_ON_UNDEFINED_SYMBOLS=1 \
 	-s CATCH_EXIT_CODE=1
 
 PRE_JS_SRC=js_emsc/pre_AWK.js
 POST_JS_SRC=js_emsc/post_AWK.js
+
+PRE_JS_WEBWORKER_SRC=js_emsc/pre_AWK_web_worker.js
+POST_JS_WEBWORKER_SRC=js_emsc/post_AWK_web_worker.js
 
 .PHONY: all
 all:
@@ -62,6 +65,8 @@ oo-all:
 	@echo "   make node-test  - test the AWK node version"
 	@echo "   make web        - Compile the web version (website/awk_web.js)"
 	@echo "   make web-test   - Print the URL to test the web version"
+	@echo "   make webworker  - Compile the web-worker version (website/awk_web_worker.js)"
+	@echo "   make webworker-test   - Print the URL to test the web version"
 	@echo ""
 	@echo "   make prebuilt   - If you don't have llvm/clang/emscripten compilers"
 	@echo "                       installed, use the pre-built javascript versions."
@@ -125,6 +130,30 @@ web-test: website/awk_web.js tests/web_test.js
 	@echo
 	@echo
 	@rm -f tmp_web_test.js
+
+.PHONY: webworker
+webworker: website/awk_web_worker.js
+
+## NOTE: no closure optimization for webworkers - it doesn't work
+website/awk_web_worker.js: $(BUSYBOX_AWK_SRC) $(NEWLIB_SRC) $(PRE_JS_WEBWORKER_SRC) $(POST_JS_WEBWORKER_SRC)
+	$(EMCC) $(JS_FLAGS) \
+		$(BUSYBOX_INCLUDE_PATH) \
+		-DWEBAWK_CALLBACK_CUSTOM \
+		$(BUSYBOX_AWK_SRC) \
+		$(NEWLIB_SRC) \
+		--pre-js $(PRE_JS_WEBWORKER_SRC) \
+		--post-js $(POST_JS_WEBWORKER_SRC) \
+		-o $@
+
+.PHONY: webworker-test
+webworker-test: website/awk_web_worker.js
+	@echo
+	@echo
+	@echo "Web-Workers can't be loaded using file:///"
+	@echo " You must setup a local webserver for this directory:"
+	@echo "	    $(PWD)/website"
+	@echo
+	@echo
 
 .PHONY: node
 node: awk_node.js
@@ -190,7 +219,7 @@ bin-test: awk_bin
 
 
 .PHONY: clean
-clean: clean-node clean-web clean-bin
+clean: clean-node clean-web clean-bin clean-webworker
 
 
 .PHONY: clean-node
@@ -200,6 +229,10 @@ clean-node:
 .PHONY: clean-web
 clean-web:
 	rm -f website/awk_web.js
+
+.PHONY: clean-webworker
+clean-webworker:
+	rm -f website/awk_web_worker.js
 
 .PHONY: clean-bin
 clean-bin:

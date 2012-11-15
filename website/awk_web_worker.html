@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>WebAWK with Callbacks</title>
+
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+	<script src="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/js/bootstrap.min.js"></script>
+	<link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css"
+		rel="stylesheet">
+	<script src="http://d1n0x3qji82z53.cloudfront.net/src-min-noconflict/ace.js"
+		type="text/javascript" charset="utf-8"></script>
+
+<style type="text/css" media="screen">
+#awk_program {
+	width: 400px;
+	height: 200px;
+}
+
+#input_data {
+	width: 400px;
+	height: 200px;
+}
+
+#source_code_row {
+	min-height: 250px;
+}
+
+.uarrow {
+	text-align: center;
+	font-size: x-large;
+}
+
+.notification_alert {
+	text-align: center;
+}
+
+</style>
+
+</head>
+
+<body>
+
+
+<header class="jumbotron subhead" id="overview">
+	<div class="container">
+		<h1>Interactive WebAWK - AWK in Javascript</h1>
+		<p class="lead">Enjoy AWK without leaving your browser.</p>
+	</div>
+</header>
+
+
+<div class="container">
+
+<div class="row"> 
+	<div class="span12">
+This page will demonstrate the interaction between AWK's <b>patterns</b>, <b>actions</b>, and <b>input files</b>.<p>
+
+Modify the AWK program and input data as desired, then click <span class="label label-info">Run</span>.<p>
+More information at <a href="https://github.com/agordon/webawk">WebAwk Git repository</a>
+	</div>
+</div>
+
+<div class="row" id="source_code_row">
+	<div class="span6">
+		<h2>AWK Program</h2>
+		<div id="awk_program">BEGIN {
+	print "Hello from Web/AWK World"
+}
+$2 ~ /C/ { print $1 * 2 }
+
+{ print ( $1 + 5 ) * 1.4 }
+
+$1*10 &gt; 23
+
+</div>
+	</div>
+
+	<div class="span6">
+		<h2>Input File</h2>
+		<div id="input_data">1   A
+2   B
+3   C
+4   D</div>
+	</div>
+</div>
+
+<div class="row" >
+	<div class="span6">
+		<div style="display: none;" id="source_code_notification">
+			<br/>
+			<div class="alert alert-info notification_alert">
+			<div class="uarrow">&uarr;</div>
+			<div id="source_code_notification_text">This is what's going on</div>
+			</div>
+		</div>
+	</div>
+	<div class="span6">
+		<div style="display: none ;" id="input_data_notification">
+			<br/>
+			<div class="alert alert-info notification_alert">
+			<div class="uarrow">&uarr;</div>
+			<div id="input_data_notification_text">This is what's going on</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<br/>
+<div class="row">
+	<div class="span12">
+
+	<input class="button btn-primary" type="button" value="Run" onclick="go_awk_go()"/>
+	</div>
+</div>
+
+<div class="row">
+	<div class="span12">
+
+	<div style="display: none;" id="awk_error_msg">
+		<br/>
+		<div class="alert alert-error">
+		Oops! seems like your AWK program failed!<p>
+		Please check the syntax and try again...
+		</div>
+	</div>
+
+	<h4>Output</h4>
+	<pre id="output_file"></pre>
+
+	</div>
+</div>
+
+</div> <!-- container -->
+
+<script type="text/javascript">
+
+//NOTE: These values must match the defined enum in awk.c
+var NTBT_ENTER_BEGIN_BLOCK= 1;
+var NTBT_EXIT_BEGIN_BLOCK = 2;
+var NTBT_ENTER_END_BLOCK  = 3;
+var NTBT_EXIT_END_BLOCK   = 4;
+var NTBT_ENTER_ACTION     = 5;
+var NTBT_EXIT_ACTION      = 6;
+var NTBT_ENTER_PATTERN    = 7;
+var NTBT_TAKE_PATTERN=8; //will only be called if the pattern matched
+var NTBT_EXIT_PATTERN=9; //will only be called if the pattern didn't match
+var NTBT_IMPLICIT_PATTERN = 10; // called when there's only an action, BEFORE the action notification.
+var NTBT_IMPLICIT_ACTION = 11; // called when there's only a pattern, AFTER the pattern notification (only if it matched).
+var NTBT_LAST_RULE       = 12; // Last rule means no more patterns/actions - 
+var NTBT_NEXT			 = 13; // 'next' called - interrupt flowcontrol
+var NTBT_NEXTFILE		 = 14; // 'nextfile' called - interrupt flowcontrol
+var NTBT_EXIT			 = 15; // 'exit' called - interrupt flowcontrol
+var NTBT_GETLINE		 = 16; // getline was explicitly or implicitly called
+var NTBT_END_OF_FILE     = 17; //End of a single file - NOT USED
+var NTBT_END_OF_FILES    = 18;  //End of all files - finished program; moving to END block.
+
+var webawk_notification_details = {};
+webawk_notification_details[NTBT_ENTER_BEGIN_BLOCK] = "Processing <b>BEGIN</b> block";
+webawk_notification_details[NTBT_EXIT_BEGIN_BLOCK]  = "";
+webawk_notification_details[NTBT_ENTER_END_BLOCK]   = "Processing <b>END</b> block";
+webawk_notification_details[NTBT_EXIT_END_BLOCK]    = "";
+webawk_notification_details[NTBT_ENTER_ACTION]      = "Processing <b>ACTION</b> block";
+webawk_notification_details[NTBT_EXIT_ACTION]       = "";
+webawk_notification_details[NTBT_ENTER_PATTERN]     = "Testing <b>PATTERN</b> against current input line";
+webawk_notification_details[NTBT_TAKE_PATTERN]      = "<b>PATTERN</b> matched<br><b>ACTION</b> will follow";
+webawk_notification_details[NTBT_EXIT_PATTERN]      = "<b>PATTERN</b> did not match<br><b>ACTION</b> will be skipped";
+webawk_notification_details[NTBT_IMPLICIT_PATTERN]  = "Implicit <b>PATTERN</b> - always match<br><b>ACTION</b> will follow";
+webawk_notification_details[NTBT_IMPLICIT_ACTION]   = "Implicit <b>ACTION</b> - the line will be printed";
+webawk_notification_details[NTBT_LAST_RULE]         = "No more patterns/action - get the next line and start from the top";
+webawk_notification_details[NTBT_NEXT]              = "Stop processing rules, and get the next line";
+webawk_notification_details[NTBT_NEXTFILE]          = "NEXTFILE";
+webawk_notification_details[NTBT_EXIT]              = "Stop the program.";
+webawk_notification_details[NTBT_GETLINE]           = "Reading the next input line";
+webawk_notification_details[NTBT_END_OF_FILE]       = "End of input data";
+webawk_notification_details[NTBT_END_OF_FILES]      = "End of input data";
+
+function show_source_code_notification(text)
+{
+	$("#source_code_notification").show();
+	$("#source_code_notification_text").html(text);
+}
+
+function show_input_data_notification(text)
+{
+	$("#input_data_notification").show();
+	$("#input_data_notification_text").html(text);
+}
+
+function webawk_notification_callback(type,type_name,start_line,start_pos,end_line,end_pos)
+{
+
+	console.log("weback no: " + type_name + " from:(row: " + start_line +
+			" col: " + start_pos + ") to: (row: " + end_line +
+			" col: " + end_pos + ")");
+
+	var details = webawk_notification_details[type];
+	if (details == "")
+		return;
+
+	input_editor.clearSelection();
+	src_editor.clearSelection();
+
+	$("#input_data_notification").hide();
+	$("#source_code_notification").hide();
+
+	switch(type)
+	{
+	case NTBT_ENTER_BEGIN_BLOCK:
+	case NTBT_EXIT_BEGIN_BLOCK:
+	case NTBT_ENTER_END_BLOCK:
+	case NTBT_EXIT_END_BLOCK:
+	case NTBT_ENTER_ACTION:
+	case NTBT_EXIT_ACTION:
+	case NTBT_ENTER_PATTERN:
+	case NTBT_TAKE_PATTERN:
+	case NTBT_EXIT_PATTERN:
+		var sel = src_editor.getSelection();
+		sel.setSelectionRange(new Range(start_line,start_pos,end_line,end_pos));
+		show_source_code_notification(details);
+		break;
+
+	case NTBT_IMPLICIT_PATTERN:
+	case NTBT_IMPLICIT_ACTION:
+		var sel = src_editor.getSelection();
+		sel.setSelectionRange(new Range(start_line,start_pos,start_line,start_pos+1));
+		show_source_code_notification(details);
+		break;
+
+	case NTBT_LAST_RULE:
+		show_source_code_notification(details);
+		break;
+
+	case NTBT_GETLINE:
+		var sel = input_editor.getSelection();
+		sel.setSelectionRange(new Range(start_line,0,end_line+1,0));
+		show_input_data_notification(details);
+		break;
+
+	case NTBT_END_OF_FILE:
+	case NTBT_END_OF_FILES:
+		show_input_data_notification(details);
+		break;
+	}
+
+}
+
+function go_awk_go()
+{
+
+	//Disable highlighting, while we have notification callbacks
+	src_editor.setHighlightActiveLine(false);
+	input_editor.setHighlightActiveLine(false);
+
+	var awk_source = src_editor.getValue();
+	var sample_input = input_editor.getValue();
+
+//	var awk = run_web_awk( awk_source, sample_input ) ;
+
+	awk_worker.postMessage( { 'type': 'run_awk',
+				  'awk_program': awk_source,
+				  'input_data' : sample_input } );
+
+
+}
+
+// see  http://stackoverflow.com/questions/10452869/when-i-try-to-create-a-range-object-in-ace-js-an-illegal-constructor-error-is
+var Range = ace.require('ace/range').Range ;
+
+var src_editor = ace.edit("awk_program");
+src_editor.setTheme("ace/theme/github");
+src_editor.getSession().setMode("ace/mode/javascript");
+
+var input_editor = ace.edit("input_data");
+input_editor.setTheme("ace/theme/github");
+input_editor.getSession().setMode("ace/mode/javascript");
+
+var awk_worker = new Worker('awk_web_worker.js');
+awk_worker.onmessage = function(event) {
+	if (event.data.event == "notification" ) {
+		webawk_notification_callback(
+					event.data.type,
+					event.data.type_name,
+					event.data.start_line-1,
+					event.data.start_pos-1,
+					event.data.end_line-1,
+					event.data.end_pos
+				)
+	}
+	else if (event.data.event == "stdout" ) {
+		var new_text = event.data.stdout_text;
+		var old_text = $("#output_file").text();
+		$("#output_file").text (  old_text + new_text ) ;
+	}
+	else if (event.data.event == "stderr" ) {
+		var new_text = event.data.stderr_text;
+		var old_text = $("#output_file").text();
+		$("#output_file").text (  old_text + new_text ) ;
+	}
+	else if (event.data.event == "exit") {
+		var exit_code = event.data.exit_code;
+		if (exit_code != 0) {
+			$("#awk_error_msg").show();
+		} else {
+			$("#awk_error_msg").hide();
+		}
+
+		$("#input_data_notification").hide();
+		$("#source_code_notification").hide();
+
+		//Enable highlighting
+		src_editor.setHighlightActiveLine(true);
+		input_editor.setHighlightActiveLine(true);
+	}
+	else {
+		console.log("Error: unknown event object from AWK web worker: " + event.data);
+	}
+};
+
+</script>
+
+</body>
+</html>
