@@ -121,7 +121,7 @@ However, if you get compilation errors, or other unresolved symbols - that's a l
 Compiling the AWK binary
 ------------------------
 
-* To compile the *binry version*, run ```make bin``` (you'll need the `clang` compiler).
+* To compile the *binary version*, run ```make bin``` (you'll need the `clang` compiler).
 * The compiled output file is `awk_bin`.
 * This file can be easily debugged with `gdb` (or similar debuggers).
 
