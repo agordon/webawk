@@ -78,7 +78,7 @@ Follow the ([emscripten Tutorial](https://github.com/kripken/emscripten/wiki/Tut
 
 * To compile the *web version*, run ```make web``` .
 * The compiled output file is `website/awk_web.js`. It contains the emscripten'd AWK code, wrapped in a single javascript function `run_web_awk()` .
-* Load the file `websize/awk_web.js` in your web-browser to run sample AWK programs.
+* Load the file `website/awk_web.js` in your web-browser to run sample AWK programs.
 * The *web version* is configured with additional wrappers, and a friendly javascript function that runs awk on a given input. The source code for the wrappers is in `js_emsc` sub-directory.
 * See `tests/web_test.js` for an example of calling this function.
 
